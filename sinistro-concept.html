@@ -1,0 +1,1565 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Regulação de Sinistro Aumentada por IA — Concept Seguro</title>
+<style>
+  /* =============================================================
+     RESET & BASE
+     ============================================================= */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    color: #0F172A;
+    background: #FAFBFC;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* =============================================================
+     COLOR TOKENS
+     ============================================================= */
+  :root {
+    --bg-dark: #0A0E1A;
+    --bg-panel: #FFFFFF;
+    --bg-soft: #F8FAFC;
+    --text-strong: #0F172A;
+    --text-muted: #64748B;
+    --text-inverse: #E2E8F0;
+    --border: #E2E8F0;
+    --border-strong: #CBD5E1;
+
+    --client: #F43F5E;        /* workflow do cliente — não toca */
+    --client-soft: #FEE2E2;
+    --augment: #10B981;       /* camada de aumento — nosso domínio */
+    --augment-soft: #D1FAE5;
+    --agentic: #8B5CF6;       /* plataforma agêntica */
+    --agentic-soft: #EDE9FE;
+    --tooling: #0EA5E9;       /* MCPs e indexadores */
+    --tooling-soft: #E0F2FE;
+
+    --status-done: #10B981;
+    --status-progress: #F59E0B;
+    --status-planned: #94A3B8;
+  }
+
+  /* =============================================================
+     LAYOUT
+     ============================================================= */
+  .container { max-width: 1180px; margin: 0 auto; padding: 0 32px; }
+
+  section { padding: 96px 0; }
+  section.tight { padding: 64px 0; }
+
+  .section-label {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--augment);
+    margin-bottom: 16px;
+  }
+
+  h1 { font-size: clamp(36px, 5vw, 56px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
+  h2 { font-size: clamp(28px, 3.5vw, 40px); font-weight: 700; letter-spacing: -0.015em; line-height: 1.2; margin-bottom: 16px; }
+  h3 { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+  h4 { font-size: 15px; font-weight: 600; }
+  p { color: var(--text-muted); margin-bottom: 16px; max-width: 70ch; }
+  p.lead { font-size: 18px; color: var(--text-strong); }
+
+  /* =============================================================
+     NAV
+     ============================================================= */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(12px);
+    background: rgba(255,255,255,0.85);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 0;
+  }
+  nav .container { display: flex; align-items: center; justify-content: space-between; }
+  nav .brand { font-weight: 700; font-size: 15px; }
+  nav .brand .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--augment); margin-right: 8px; vertical-align: middle; }
+  nav ul { list-style: none; display: flex; gap: 24px; }
+  nav a { color: var(--text-muted); text-decoration: none; font-size: 14px; transition: color 0.2s; }
+  nav a:hover { color: var(--text-strong); }
+
+  /* =============================================================
+     HERO
+     ============================================================= */
+  .hero {
+    background: var(--bg-dark);
+    color: var(--text-inverse);
+    padding: 120px 0 96px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 20% 30%, rgba(139,92,246,0.15) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(16,185,129,0.12) 0%, transparent 50%);
+  }
+  .hero .container { position: relative; }
+  .hero h1 { color: white; max-width: 16ch; }
+  .hero .eyebrow { color: var(--augment); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 24px; }
+  .hero p.lead { color: #94A3B8; max-width: 60ch; margin-top: 24px; font-size: 19px; }
+  .hero .meta { margin-top: 48px; display: flex; gap: 48px; flex-wrap: wrap; }
+  .hero .meta-item { font-size: 14px; }
+  .hero .meta-item .label { color: var(--text-muted); display: block; margin-bottom: 4px; }
+  .hero .meta-item .value { color: white; font-weight: 600; font-size: 16px; }
+
+  /* =============================================================
+     PROBLEMA
+     ============================================================= */
+  .problem-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 24px;
+    margin-top: 48px;
+  }
+  .problem-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .problem-card:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(15,23,42,0.06); }
+  .problem-card .icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    background: var(--client-soft);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 16px;
+    color: var(--client);
+    font-size: 20px;
+  }
+  .problem-card h3 { margin-bottom: 8px; }
+  .problem-card p { font-size: 14px; margin: 0; }
+
+  /* =============================================================
+     ARQUITETURA — 3 LAYERS
+     ============================================================= */
+  .layers {
+    margin-top: 48px;
+    display: grid;
+    gap: 16px;
+  }
+  .layer {
+    background: var(--bg-panel);
+    border: 2px solid var(--border);
+    border-radius: 20px;
+    padding: 32px;
+    position: relative;
+    transition: transform 0.2s;
+  }
+  .layer-client { border-color: var(--client); background: linear-gradient(180deg, #FFF1F2 0%, #FFFFFF 100%); }
+  .layer-augment { border-color: var(--augment); background: linear-gradient(180deg, #ECFDF5 0%, #FFFFFF 100%); }
+  .layer-agentic { border-color: var(--agentic); background: linear-gradient(180deg, #F5F3FF 0%, #FFFFFF 100%); }
+
+  .layer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .layer-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 6px 12px;
+    border-radius: 999px;
+  }
+  .layer-tag.client { background: var(--client); color: white; }
+  .layer-tag.augment { background: var(--augment); color: white; }
+  .layer-tag.agentic { background: var(--agentic); color: white; }
+  .layer h3 { font-size: 24px; }
+  .layer-note { font-size: 13px; color: var(--text-muted); font-style: italic; }
+
+  .layer-items {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+  }
+  .layer-item {
+    background: rgba(255,255,255,0.7);
+    border: 1px solid rgba(0,0,0,0.06);
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .connector {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+    padding: 4px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+  .connector::before, .connector::after {
+    content: '';
+    flex: 0 0 60px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border-strong), transparent);
+  }
+
+  /* =============================================================
+     COMPONENTES GRID
+     ============================================================= */
+  .components-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    margin-top: 48px;
+  }
+  .component {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    position: relative;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+  .component:hover {
+    border-color: var(--border-strong);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(15,23,42,0.05);
+  }
+  .component-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .component-name { font-weight: 600; font-size: 15px; }
+  .component-type { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+  .component-status {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 4px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+  .status-done { background: var(--augment-soft); color: #065F46; }
+  .status-progress { background: #FEF3C7; color: #92400E; }
+  .status-planned { background: #F1F5F9; color: #475569; }
+  .component-desc { font-size: 13px; color: var(--text-muted); }
+
+  /* =============================================================
+     FLUXO END-TO-END
+     ============================================================= */
+  .flow-wrapper { margin-top: 48px; }
+  .flow-controls { display: flex; gap: 8px; margin-bottom: 24px; align-items: center; }
+  .btn {
+    background: var(--text-strong);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .btn:hover { opacity: 0.9; }
+  .btn-secondary { background: white; color: var(--text-strong); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: var(--bg-soft); }
+
+  .flow-stepper {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 8px;
+    margin-bottom: 32px;
+    background: var(--bg-soft);
+    padding: 12px;
+    border-radius: 12px;
+  }
+  .step-pill {
+    text-align: center;
+    padding: 12px 8px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    background: white;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .step-pill.active { background: var(--text-strong); color: white; border-color: var(--text-strong); }
+  .step-pill.done { background: var(--augment-soft); color: #065F46; border-color: var(--augment); }
+
+  .flow-stage {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    min-height: 360px;
+  }
+  .flow-stage-num {
+    display: inline-block;
+    background: var(--text-strong);
+    color: white;
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 32px;
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 16px;
+  }
+  .flow-stage h3 { font-size: 22px; margin-bottom: 12px; }
+  .flow-stage .stage-actors { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 20px; }
+  .actor-chip {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .actor-chip::before { content: ''; width: 6px; height: 6px; border-radius: 50%; }
+  .actor-client { background: var(--client-soft); color: #9F1239; }
+  .actor-client::before { background: var(--client); }
+  .actor-augment { background: var(--augment-soft); color: #065F46; }
+  .actor-augment::before { background: var(--augment); }
+  .actor-agentic { background: var(--agentic-soft); color: #5B21B6; }
+  .actor-agentic::before { background: var(--agentic); }
+  .actor-tooling { background: var(--tooling-soft); color: #075985; }
+  .actor-tooling::before { background: var(--tooling); }
+
+  .stage-detail { margin-top: 20px; padding-top: 20px; border-top: 1px dashed var(--border); }
+  .stage-detail h4 { color: var(--text-strong); margin-bottom: 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+  .stage-detail p { font-size: 14px; }
+
+  /* =============================================================
+     LOOP — animated diagram
+     ============================================================= */
+  .loop-section { background: var(--bg-dark); color: var(--text-inverse); }
+  .loop-section .section-label { color: #34D399; }
+  .loop-section h2 { color: white; }
+  .loop-section p { color: #94A3B8; }
+
+  .loop-container {
+    margin-top: 48px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    align-items: center;
+  }
+  @media (max-width: 840px) { .loop-container { grid-template-columns: 1fr; } }
+
+  .loop-svg-wrap { display: flex; justify-content: center; }
+  .loop-svg { width: 100%; max-width: 440px; }
+  .loop-svg circle.bg { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 2; }
+  .loop-svg circle.progress { fill: none; stroke: #10B981; stroke-width: 3; stroke-linecap: round; transition: stroke-dashoffset 0.6s ease; }
+  .loop-node { transition: all 0.3s ease; }
+  .loop-node circle { fill: rgba(255,255,255,0.06); stroke: rgba(255,255,255,0.2); stroke-width: 1.5; }
+  .loop-node.active circle { fill: #10B981; stroke: #10B981; }
+  .loop-node text { fill: #94A3B8; font-size: 11px; font-weight: 600; text-anchor: middle; }
+  .loop-node.active text { fill: white; }
+
+  .loop-steps { display: flex; flex-direction: column; gap: 16px; }
+  .loop-step {
+    padding: 16px 20px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    transition: all 0.3s;
+  }
+  .loop-step.active {
+    background: rgba(16,185,129,0.1);
+    border-color: rgba(16,185,129,0.4);
+    transform: translateX(8px);
+  }
+  .loop-step-num { color: var(--augment); font-weight: 700; font-size: 12px; letter-spacing: 0.1em; margin-bottom: 4px; display: block; }
+  .loop-step-title { color: white; font-weight: 600; font-size: 15px; margin-bottom: 4px; }
+  .loop-step-desc { color: #94A3B8; font-size: 13px; }
+
+  /* =============================================================
+     SCENARIO WALKTHROUGH
+     ============================================================= */
+  .scenario-hero {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 40px;
+    margin-top: 48px;
+  }
+  .scenario-hero h3 { font-size: 24px; margin-bottom: 8px; }
+  .scenario-hero .case-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 24px;
+    margin-top: 24px;
+    padding: 20px;
+    background: var(--bg-soft);
+    border-radius: 12px;
+  }
+  .case-meta-item .label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+  .case-meta-item .value { font-weight: 600; font-size: 14px; color: var(--text-strong); }
+
+  .scenario-steps {
+    margin-top: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .scenario-step {
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: 20px;
+    align-items: flex-start;
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+  }
+  .scenario-step:hover { background: var(--bg-soft); }
+  .scenario-step-num {
+    background: linear-gradient(135deg, var(--augment), #34D399);
+    color: white;
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 16px;
+  }
+  .scenario-step-content h4 { font-size: 16px; margin-bottom: 6px; color: var(--text-strong); }
+  .scenario-step-content p { font-size: 14px; margin: 0; max-width: none; }
+  .scenario-step-actor { margin-top: 8px; }
+
+  /* =============================================================
+     ROADMAP
+     ============================================================= */
+  .roadmap {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-top: 48px;
+  }
+  @media (max-width: 760px) { .roadmap { grid-template-columns: 1fr; } }
+  .roadmap-col {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+  }
+  .roadmap-col-header {
+    display: flex; align-items: center; gap: 8px;
+    padding-bottom: 16px; border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+  .roadmap-col-header h3 { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin: 0; }
+  .roadmap-col .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .roadmap-col.done .dot { background: var(--status-done); }
+  .roadmap-col.progress .dot { background: var(--status-progress); }
+  .roadmap-col.planned .dot { background: var(--status-planned); }
+  .roadmap-card {
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: var(--bg-soft);
+    margin-bottom: 8px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .roadmap-card .small { font-size: 11px; color: var(--text-muted); font-weight: 400; display: block; margin-top: 2px; }
+
+  /* =============================================================
+     KEY INSIGHT BOXES
+     ============================================================= */
+  .insight {
+    background: linear-gradient(135deg, #ECFDF5 0%, #F0FDF4 100%);
+    border-left: 4px solid var(--augment);
+    padding: 20px 24px;
+    border-radius: 12px;
+    margin: 32px 0;
+  }
+  .insight strong { color: var(--text-strong); }
+  .insight p { color: var(--text-strong); margin: 0; font-size: 15px; }
+
+  /* =============================================================
+     FOOTER
+     ============================================================= */
+  footer {
+    background: var(--bg-dark);
+    color: var(--text-inverse);
+    padding: 48px 0;
+    margin-top: 64px;
+  }
+  footer .container { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+  footer .brand { font-weight: 700; font-size: 16px; color: white; }
+  footer .meta { color: var(--text-muted); font-size: 13px; }
+
+  /* =============================================================
+     UTILITIES
+     ============================================================= */
+  .text-center { text-align: center; }
+  .mt-32 { margin-top: 32px; }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     NAV
+     ============================================================ -->
+<nav>
+  <div class="container">
+    <div class="brand"><span class="dot"></span>Concept Seguro</div>
+    <ul>
+      <li><a href="#problema">Problema</a></li>
+      <li><a href="#arquitetura">Arquitetura</a></li>
+      <li><a href="#ecossistema">Ecossistema</a></li>
+      <li><a href="#componentes">Componentes</a></li>
+      <li><a href="#fluxo">Fluxo</a></li>
+      <li><a href="#loop">O Loop</a></li>
+      <li><a href="#cenario">Cenário</a></li>
+      <li><a href="#roadmap">Roadmap</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ============================================================
+     HERO
+     ============================================================ -->
+<header class="hero">
+  <div class="container">
+    <div class="eyebrow">Plataforma de Regulação de Sinistro</div>
+    <h1>Regulação aumentada por IA, sem mexer no que já funciona</h1>
+    <p class="lead">
+      Uma camada de aumento que escuta o workflow existente da seguradora, processa
+      conhecimento contratual e procedural com agentes especializados, e devolve enriquecimento
+      no formato que a operação já reconhece. O regulador continua no controle — só que agora
+      assistido por um sistema que entende cada documento que chega.
+    </p>
+    <div class="meta">
+      <div class="meta-item">
+        <span class="label">Cliente piloto</span>
+        <span class="value">CVP — Caixa Vida e Previdência</span>
+      </div>
+      <div class="meta-item">
+        <span class="label">Escopo atual</span>
+        <span class="value">Seguro de Vida</span>
+      </div>
+      <div class="meta-item">
+        <span class="label">Estágio</span>
+        <span class="value">Indexação em produção, orquestração em design</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ============================================================
+     PROBLEMA
+     ============================================================ -->
+<section id="problema">
+  <div class="container">
+    <div class="section-label" style="color: var(--client);">O Problema</div>
+    <h2>Regulação hoje é lenta — e tem mais de uma causa</h2>
+    <p class="lead">
+      A demora não vem de um problema único. <strong>Operacionalmente</strong>, o sinistro atravessa uma fila de validações manuais com vários atores — cada um pode pedir mais documentos, devolvendo o caso pra "aguardando" e gerando ciclos que arrastam dias ou semanas. <strong>Cognitivamente</strong>, o regulador precisa cruzar três fontes desconectadas (contrato, prática regulatória, documentos do caso) que ninguém colocou pra conversar. Os dois gargalos se reforçam.
+    </p>
+
+    <div class="problem-grid">
+      <div class="problem-card">
+        <div class="icon">👥</div>
+        <h3>Fila com múltiplos atores</h3>
+        <p>O sinistro passa por cadastrador, validador documental e regulador antes da decisão final. Cada papel pode pedir mais documentos e devolver pra "aguardando docs" — ciclos manuais que arrastam o prazo. <strong>Maior gargalo operacional do processo hoje.</strong></p>
+      </div>
+      <div class="problem-card">
+        <div class="icon">📋</div>
+        <h3>Validação manual repetitiva</h3>
+        <p>5 herdeiros declarados, 3 RGs recebidos. Quem falta? Qual nome bate? Datas conferem? Assinatura reconhecida? Cruzamentos que humano faz lentamente e código faz em milissegundos.</p>
+      </div>
+      <div class="problem-card">
+        <div class="icon">📄</div>
+        <h3>Documentos jurídicos densos</h3>
+        <p>Condições gerais com 100+ páginas, referências cruzadas, alíneas aninhadas. Encontrar a cláusula certa pra cada caso consome tempo precioso do regulador.</p>
+      </div>
+      <div class="problem-card">
+        <div class="icon">🧠</div>
+        <h3>Conhecimento tácito do regulador</h3>
+        <p>Práticas que não estão nas condições gerais, mas todo regulador sênior sabe: súmulas do STJ, circulares da SUSEP, decisões internas comunicadas em reunião.</p>
+      </div>
+      <div class="problem-card">
+        <div class="icon">🔁</div>
+        <h3>Checklist é vivo, não estático</h3>
+        <p>Cada documento que chega pode revelar nova ramificação. Acidente de trânsito? Toxicológico. Suicídio nos primeiros 2 anos? Outra abordagem inteira. Reavaliação manual a cada novo documento é uma das fontes do ciclo "aguardando".</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     ARQUITETURA
+     ============================================================ -->
+<section id="arquitetura" style="background: var(--bg-soft);">
+  <div class="container">
+    <div class="section-label">Arquitetura</div>
+    <h2>Camada de aumento, não substituição</h2>
+    <p class="lead">
+      O cliente tem workflow operacional próprio que ele <em>não quer</em> mudar. Nossa
+      plataforma se conecta a esse workflow por eventos, processa por baixo, e devolve
+      enriquecimento. Três camadas, papéis bem definidos.
+    </p>
+
+    <div class="layers">
+      <!-- LAYER 1: Cliente -->
+      <div class="layer layer-client">
+        <div class="layer-header">
+          <div>
+            <span class="layer-tag client">Não tocamos aqui</span>
+            <h3 style="margin-top: 12px;">Workflow do Cliente</h3>
+            <span class="layer-note">Operação existente da seguradora — preservada integralmente</span>
+          </div>
+        </div>
+        <div class="layer-items">
+          <div class="layer-item">Aviso de sinistro</div>
+          <div class="layer-item">Coleta de documentos</div>
+          <div class="layer-item">Análise técnica</div>
+          <div class="layer-item">Pagamento / Recusa</div>
+        </div>
+      </div>
+
+      <div class="connector">↑ eventos &nbsp;·&nbsp; enriquecimento ↓</div>
+
+      <!-- LAYER 2: Camada de aumento -->
+      <div class="layer layer-augment">
+        <div class="layer-header">
+          <div>
+            <span class="layer-tag augment">Nosso domínio</span>
+            <h3 style="margin-top: 12px;">Camada de Aumento — Concept Seguro</h3>
+            <span class="layer-note">Orquestração de negócio + ferramental especializado. Código tradicional onde lógica é determinística; agentes onde precisa de inferência.</span>
+          </div>
+        </div>
+        <div class="layer-items">
+          <div class="layer-item">Orquestrador (CaseState, eventos, IFs)</div>
+          <div class="layer-item">Checklist Padrão CVP (por tipo de sinistro)</div>
+          <div class="layer-item">Indexador de Condições Gerais</div>
+          <div class="layer-item">Indexador de Orientações de Trabalho</div>
+          <div class="layer-item">MCPs de navegação e validação</div>
+          <div class="layer-item">Teams App (canal do regulador)</div>
+        </div>
+      </div>
+
+      <div class="connector">↑ chamadas de inferência &nbsp;·&nbsp; resultados estruturados ↓</div>
+
+      <!-- LAYER 3: Plataforma agêntica -->
+      <div class="layer layer-agentic">
+        <div class="layer-header">
+          <div>
+            <span class="layer-tag agentic">Governança de IA</span>
+            <h3 style="margin-top: 12px;">Plataforma Agêntica</h3>
+            <span class="layer-note">Agentes especializados em tarefas de inferência — indexação de conhecimento, extração de documentos, geração de texto, conversação. Stateless, idempotentes, com RLHF, audit log de chamadas e versionamento de modelo.</span>
+          </div>
+        </div>
+        <div class="layer-items">
+          <div class="layer-item">Agentes de indexação de CG (detectar estrutura, mapear página, extrair TOC, gerar resumo)</div>
+          <div class="layer-item">Agentes de indexação de OT (em desenvolvimento)</div>
+          <div class="layer-item">Classificador de tipo de documento do sinistro</div>
+          <div class="layer-item">Extrator de entidades estruturadas</div>
+          <div class="layer-item">Gerador de checklist</div>
+          <div class="layer-item">Agente de elegibilidade</div>
+          <div class="layer-item">Copiloto do regulador (Teams)</div>
+          <div class="layer-item">Copiloto do atendimento (conversacional, futuro)</div>
+          <div class="layer-item">Gerador de parecer rascunho</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="insight">
+      <p><strong>Por que essa separação importa:</strong> orquestração com IF é mais barata, mais
+      auditável e mais rápida que orquestração com agente. Reservamos a IA para o que ela faz
+      bem (extrair, gerar texto, raciocinar sobre contexto ambíguo) e usamos código onde a lógica
+      é clara (recebeu documento X → re-avalia checklist; validar 5 herdeiros = 5 RGs).</p>
+    </div>
+
+    <!-- ============================================================
+         TRÊS FONTES DE CONHECIMENTO — Padrão CVP, CG e OT
+         ============================================================ -->
+    <h3 style="font-size: 22px; margin-top: 64px; margin-bottom: 12px;">Três fontes de conhecimento — Padrão CVP, CG e OT</h3>
+    <p>A camada de aumento combina três fontes de conhecimento com naturezas diferentes. O agente parte do <strong>padrão</strong>, ajusta pela <strong>CG</strong> (especificidades do produto) e modifica pela <strong>OT</strong> (mudanças vivas que aconteceram depois). Cada uma cobre o que as outras não cobrem.</p>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; margin-top: 24px;">
+      <div style="background: var(--bg-panel); border: 1px solid var(--border); border-left: 4px solid var(--tooling); border-radius: 14px; padding: 24px;">
+        <div style="width: 40px; height: 40px; border-radius: 10px; background: var(--tooling-soft); color: var(--tooling); display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 16px;">📋</div>
+        <h3 style="margin-bottom: 8px;">Checklist Padrão CVP</h3>
+        <p style="font-size: 14px; margin: 0;">Base procedural fixa. Definida internamente pela seguradora ("lei da CVP") — o checklist inicial obrigatório por tipo de sinistro (morte qualquer causa, morte acidental, invalidez, doença grave...). <strong>Pequeno, finito, estável</strong>. É o ponto de partida que CG e OT modificam.</p>
+      </div>
+      <div style="background: var(--bg-panel); border: 1px solid var(--border); border-left: 4px solid var(--augment); border-radius: 14px; padding: 24px;">
+        <div style="width: 40px; height: 40px; border-radius: 10px; background: var(--augment-soft); color: var(--augment); display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 16px;">📚</div>
+        <h3 style="margin-bottom: 8px;">Condições Gerais (CG)</h3>
+        <p style="font-size: 14px; margin: 0;">Base contratual. Estável, jurídica, vinculante. Muda em ciclos longos (revisões, lançamento de produto). Ajusta o padrão com especificidades do produto. Vive no indexador + MCP de CG, já em produção.</p>
+      </div>
+      <div style="background: var(--bg-panel); border: 1px solid var(--border); border-left: 4px solid var(--agentic); border-radius: 14px; padding: 24px;">
+        <div style="width: 40px; height: 40px; border-radius: 10px; background: var(--agentic-soft); color: var(--agentic); display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 16px;">📨</div>
+        <h3 style="margin-bottom: 8px;">Orientações de Trabalho (OT)</h3>
+        <p style="font-size: 14px; margin: 0;">Base procedural viva. Comunicada em reuniões de atividade entre seguradora e BPO. Inclui leis novas (ex: exigência de dados bancários), mudanças de processo, decisões estratégicas, interpretações de súmulas. Indexador + MCP de OT em desenvolvimento.</p>
+      </div>
+    </div>
+
+    <div class="insight" style="margin-top: 24px;">
+      <p><strong>Como as três se combinam na prática:</strong> sinistro de morte chega → agente carrega o <em>checklist padrão CVP pra morte</em> (CDO, RG, comprovante, formulário) → consulta a CG do produto pra incluir especificidades (declaração de herdeiros se sem beneficiário, p.ex.) → consulta OTs vigentes pra modificações vivas (dados bancários por exigência legal — OT-2024-018). Cada camada agrega o que falta nas outras. O que sobra de ambiguidade vai pro regulador, com o copiloto ajudando.</p>
+    </div>
+
+    <div class="insight" style="margin-top: 16px; background: linear-gradient(135deg, #FFFBEB 0%, #FEFCE8 100%); border-left-color: var(--status-progress);">
+      <p><strong>Por que essa estrutura escala:</strong> nenhuma das três fontes é "infinita" em manutenção. Padrão CVP muda raramente (revisão deliberada, talvez uma vez por ano). CG muda em ciclos contratuais (mecanismo de indexação já existe). OT muda toda hora, mas cada OT é unidade pequena e autocontida. <em>A gente não está tentando modelar o cérebro do regulador — está codificando o que já é regra clara, e deixando o resto na mão de quem decide bem.</em></p>
+    </div>
+
+    <!-- ============================================================
+         COMO O SISTEMA LIDA COM A COMBINATÓRIA DE REGRAS
+         ============================================================ -->
+    <h3 style="font-size: 22px; margin-top: 64px; margin-bottom: 12px;">E sobre a quantidade enorme de regras?</h3>
+    <p>A primeira pergunta natural é: "existe regra pra acidente de trabalho, pra morte por doença grave, pra suicídio, pra invalidez por doença, pra desaparecimento — não dá pra escrever IF pra cada combinação". Está certo: <strong>não dá</strong>. E se a solução fosse essa, alguém já teria feito. Foi essa tentativa que falhou no passado.</p>
+
+    <div class="insight" style="margin-top: 16px;">
+      <p><strong>O sistema não codifica regras — ele lê as que já existem.</strong> A CG é o livro de regras: pra cada tipo de sinistro, ela especifica explicitamente os documentos a solicitar. O trecho <em>"Em caso de Morte por Acidente, fornecer: BO, Laudo IML, exames subsidiários, CNH..."</em> está literalmente escrito na cláusula 13.9.3. O que ninguém tinha conseguido antes era fazer um sistema <strong>ler isso com precisão</strong>, sem alucinar. É exatamente o que indexador + MCP destravam: o LLM navega na seção certa, extrai a lista estruturada. A regra "se morte por acidente então BO + IML + exames" não vira código — ela é lida do trecho 13.9.3 a cada sinistro.</p>
+    </div>
+
+    <h4 style="font-size: 17px; margin-top: 40px; margin-bottom: 12px; color: var(--text-strong);">O que sobra — três tipos de lacuna, todos finitos</h4>
+    <p style="font-size: 15px;">A CG faz o trabalho pesado, mas tem espaços que ela não cobre. São três tipos, e cada um tem destino claro:</p>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 24px;">
+      <div style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px;">
+        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 8px;">Lacuna 1</div>
+        <h4 style="margin-bottom: 8px; font-size: 15px;">Especificações que a CG deixa ambíguas</h4>
+        <p style="font-size: 13px; margin: 0;">"Pra acidente de trânsito, qual exame especificamente?" A CG diz <em>"ex.: alcoolemia, toxicológico ou anátomo-patológico"</em> — não decide. Destino: <strong>OT (quando codificada) ou smart default em código</strong>. São 30-50 defaults pra todo o universo de vida, não milhares. Cabem numa página.</p>
+      </div>
+      <div style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px;">
+        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 8px;">Lacuna 2</div>
+        <h4 style="margin-bottom: 8px; font-size: 15px;">Convenções da CVP fora do contrato</h4>
+        <p style="font-size: 13px; margin: 0;">"Sempre pedir 2ª via se o RG foi escaneado." "Pra filho maior, validar dependência econômica via declaração de IR." Não são contratuais — são práticas operacionais. Destino: <strong>OT</strong>. Descobertas conforme aparecem, não enumeradas antecipadamente.</p>
+      </div>
+      <div style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px;">
+        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 8px;">Lacuna 3</div>
+        <h4 style="margin-bottom: 8px; font-size: 15px;">Exceções genuínas e edge cases</h4>
+        <p style="font-size: 13px; margin: 0;">"Beneficiário em país com sanção internacional." "Causa morte conflita entre CDO e laudo médico." "Suspeita de fraude documental." Não dá pra antecipar todos. Destino: <strong>regulador decide</strong>, copiloto traz contexto. Correção dele vira OT futura, fechando o ciclo.</p>
+      </div>
+    </div>
+
+    <div class="insight" style="margin-top: 24px;">
+      <p><strong>O ponto que destrava tudo:</strong> mil regras já existem — escritas na CG, página por página. A gente não está tentando criar mil regras novas. Está fazendo o que ninguém tinha conseguido: deixar o sistema <em>ler</em> as regras existentes com precisão (via indexador + MCP), complementar com smart defaults pras ambiguidades comuns (30-50 no total), e escalar com elegância pro regulador quando sobra dúvida genuína. É por isso que o problema, que parecia intratável, é tratável.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     ECOSSISTEMA COMPLETO — ATORES E CANAIS
+     ============================================================ -->
+<section id="ecossistema">
+  <div class="container">
+    <div class="section-label">Ecossistema completo</div>
+    <h2>Quem participa do fluxo — e como o sistema atende cada um</h2>
+    <p class="lead">
+      Regulação não é diálogo isolado entre regulador e segurado. Tem cinco papéis em pontos diferentes do processo, e canais que estão crescendo. Cada papel sofre da mesma falta de informação cruzada — cada um vai poder se apoiar no sistema, com o escopo certo pro que faz.
+    </p>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 48px;">
+      <div style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; padding: 24px;">
+        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--client); margin-bottom: 8px;">Origem</div>
+        <h3 style="margin-bottom: 8px; font-size: 17px;">Beneficiário</h3>
+        <p style="font-size: 13px; margin: 0;">Abre o sinistro, envia documentos, espera o pagamento. <strong>Já hoje envia documentos por WhatsApp</strong> — mas o time recebe e organiza manualmente, o que custa tempo e gera perda. <strong>Próxima onda:</strong> bot que recebe automaticamente, classifica o documento, identifica o sinistro e entra no loop de validação. Pra dúvidas e status, o bot direciona pro canal de voz — regra da CVP.</p>
+      </div>
+
+      <div style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; padding: 24px;">
+        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--tooling); margin-bottom: 8px;">Frente</div>
+        <h3 style="margin-bottom: 8px; font-size: 17px;">Atendimento</h3>
+        <p style="font-size: 13px; margin: 0;">Recebe a ligação do beneficiário — canal de voz é o padrão da CVP pra contato com cliente. Hoje precisa abrir o sistema, consultar manualmente, às vezes ligar pra regulação pra entender o caso. <strong>Solução planejada:</strong> copiloto conversacional que durante a ligação consulta o CaseState e responde em tempo real "que documentos faltam, qual o próximo passo, prazo estimado" — atendente foca no relacionamento.</p>
+      </div>
+
+      <div style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; padding: 24px;">
+        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--augment); margin-bottom: 8px;">Triagem inicial</div>
+        <h3 style="margin-bottom: 8px; font-size: 17px;">Cadastrador</h3>
+        <p style="font-size: 13px; margin: 0;">Cria o sinistro no sistema, vincula segurado, identifica produto. Hoje faz tudo manualmente — erros nessa etapa custam tempo depois. <strong>Apoio do sistema:</strong> extração automática de dados do aviso, validação cruzada com o cadastro do segurado, sugestão de produto correto.</p>
+      </div>
+
+      <div style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; padding: 24px;">
+        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--status-progress); margin-bottom: 8px;">Validação documental</div>
+        <h3 style="margin-bottom: 8px; font-size: 17px;">Validador documental</h3>
+        <p style="font-size: 13px; margin: 0;">Valida documentos, pede o que falta, pode indeferir. <strong>Aqui mora o maior gargalo do processo hoje</strong> — várias idas e vindas de "aguardando docs". O sistema acelera com validação automática (5 herdeiros = 5 RGs, datas, assinaturas, reconhecimento em cartório) e re-checklist instantâneo a cada novo documento.</p>
+      </div>
+
+      <div style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; padding: 24px;">
+        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--agentic); margin-bottom: 8px;">Decisão técnica</div>
+        <h3 style="margin-bottom: 8px; font-size: 17px;">Regulador</h3>
+        <p style="font-size: 13px; margin: 0;">Decisão técnica final: cobrir, indeferir, escalar. Quando recebe o caso, idealmente já vem com checklist completo, validações cruzadas feitas, hipóteses claras. <strong>Copiloto Teams</strong> apoia em dúvidas, navegação de CG/OT e geração do parecer técnico.</p>
+      </div>
+    </div>
+
+    <div class="insight" style="margin-top: 32px;">
+      <p><strong>Múltiplos canais convergem pra uma plataforma única.</strong> Hoje o sistema recebe documentos pelo workflow do cliente (portal/aplicativo). Próximas ondas integram <strong>bot de WhatsApp</strong> — automatiza a recepção dos documentos que beneficiários já enviam por WhatsApp hoje, mas que o time processa manualmente — e <strong>copilotos especializados por papel</strong> (atendimento conversacional pra apoio durante ligação, regulador completo via Teams). <strong>Regra da CVP:</strong> dúvidas e atendimento ficam no canal de voz humano — o bot de WhatsApp recebe e direciona, no máximo informa o que falta, mas não conversa. O CaseState central é fonte única de verdade. Cada canal lê e escreve dentro do escopo apropriado pro papel.</p>
+    </div>
+
+    <div class="insight" style="margin-top: 16px; background: linear-gradient(135deg, #FFFBEB 0%, #FEFCE8 100%); border-left-color: var(--status-progress);">
+      <p><strong>Por que pensar em todos esses atores importa:</strong> hoje o foco do sistema é o regulador — porque é o papel mais técnico e visível. Mas o maior ganho de prazo total do sinistro vai vir de acelerar o validador documental (menos ciclos "aguardando docs") e dar autonomia ao atendimento (menos ligações pro time técnico). O regulador acaba sendo cliente final do sistema, mas o impacto real se distribui pela fila inteira.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     COMPONENTES
+     ============================================================ -->
+<section id="componentes">
+  <div class="container">
+    <div class="section-label">Componentes</div>
+    <h2>O que existe, o que está em desenvolvimento, o que vem</h2>
+    <p class="lead">Inventário dos serviços e agentes que compõem a plataforma.</p>
+
+    <div class="components-grid">
+      <div class="component">
+        <div class="component-header">
+          <div>
+            <div class="component-name">Indexador de CG</div>
+            <div class="component-type">Serviço · Camada de Aumento</div>
+          </div>
+          <span class="component-status status-done">Produção</span>
+        </div>
+        <p class="component-desc">Classifica documento de condições gerais página a página com LLM, gera índice navegável, grava no blob. Resolve o problema do RAG vetorial em documento jurídico.</p>
+      </div>
+
+      <div class="component">
+        <div class="component-header">
+          <div>
+            <div class="component-name">MCP de CG</div>
+            <div class="component-type">Tooling · Read-only</div>
+          </div>
+          <span class="component-status status-done">Produção</span>
+        </div>
+        <p class="component-desc">Expõe <code>listar_produtos</code>, <code>pesquisar_produtos</code>, <code>obter_mapa</code>, <code>buscar_secoes</code>, <code>buscar_paginas</code>. Os agentes consultam aqui para se fundamentar.</p>
+      </div>
+
+      <div class="component">
+        <div class="component-header">
+          <div>
+            <div class="component-name">Teams App</div>
+            <div class="component-type">UI · Canal do regulador</div>
+          </div>
+          <span class="component-status status-done">Produção</span>
+        </div>
+        <p class="component-desc">Tab pessoal do Teams com SSO via Entra ID. BFF FastAPI + frontend React. Histórico de chat por usuário. Repassa para o copiloto da plataforma agêntica.</p>
+      </div>
+
+      <div class="component">
+        <div class="component-header">
+          <div>
+            <div class="component-name">Catálogo Postgres de CG</div>
+            <div class="component-type">Source-of-truth · Onda 2</div>
+          </div>
+          <span class="component-status status-progress">Em desenvolvimento</span>
+        </div>
+        <p class="component-desc">Tabela <code>condicoes_gerais</code> com vigência legal, código SUSEP, status de validação. Resolve a seleção correta de CG para sinistros de vida (mesma CG vale por anos).</p>
+      </div>
+
+      <div class="component">
+        <div class="component-header">
+          <div>
+            <div class="component-name">Validador de Documentos</div>
+            <div class="component-type">Serviço + MCP · Camada de Aumento</div>
+          </div>
+          <span class="component-status status-progress">Em desenvolvimento</span>
+        </div>
+        <p class="component-desc">OCR + cruzamento estruturado. Resolve casos como "5 herdeiros declarados × N RGs recebidos", validação de assinatura, reconhecimento em cartório. LLM extrai, código compara, LLM comunica.</p>
+      </div>
+
+      <div class="component">
+        <div class="component-header">
+          <div>
+            <div class="component-name">Gerador de Checklist</div>
+            <div class="component-type">Agente · Plataforma Agêntica</div>
+          </div>
+          <span class="component-status status-progress">Em desenvolvimento</span>
+        </div>
+        <p class="component-desc">Versão fundamentada só em CG já em produção (entregue o checklist base). Em desenvolvimento: integração com OT pra incluir requisitos procedurais e atualizações operacionais não-contratuais.</p>
+      </div>
+
+      <div class="component">
+        <div class="component-header">
+          <div>
+            <div class="component-name">Indexador de OT</div>
+            <div class="component-type">Serviço · Camada de Aumento</div>
+          </div>
+          <span class="component-status status-progress">Em desenvolvimento</span>
+        </div>
+        <p class="component-desc">Ingestão de Orientações de Trabalho (e-mail, PDF, txt, CSV). Classifica por produto, vigência, escopo, tipo de mudança. Existe em primeira versão; está sendo refeito — exige reindexação completa pelo cliente.</p>
+      </div>
+
+      <div class="component">
+        <div class="component-header">
+          <div>
+            <div class="component-name">Orquestrador de Negócio</div>
+            <div class="component-type">Serviço · Camada de Aumento</div>
+          </div>
+          <span class="component-status status-planned">Em design</span>
+        </div>
+        <p class="component-desc">Dono do CaseState. Recebe eventos do workflow do cliente, decide próximos passos (regras determinísticas), chama agentes e MCPs conforme necessário. Audit log de negócio.</p>
+      </div>
+
+      <div class="component">
+        <div class="component-header">
+          <div>
+            <div class="component-name">Agente de Elegibilidade</div>
+            <div class="component-type">Agente · Plataforma Agêntica</div>
+          </div>
+          <span class="component-status status-progress">Em desenvolvimento</span>
+        </div>
+        <p class="component-desc">Existe e funciona com CG; ainda não consulta OTs (depende do indexador de OT estabilizado). Identifica indeferimento na entrada para produtos tipo bilhete quando a causa documentada é incompatível com a cobertura. Sempre proposta — humano decide.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     FLUXO END-TO-END
+     ============================================================ -->
+<section id="fluxo" style="background: var(--bg-soft);">
+  <div class="container">
+    <div class="section-label">Fluxo end-to-end</div>
+    <h2>Como a regulação atravessa a plataforma</h2>
+    <p class="lead">
+      Cada etapa é disparada por evento. O orquestrador mantém o estado. Os agentes recebem
+      contexto, devolvem inferência. O regulador entra nos pontos de decisão.
+    </p>
+
+    <div class="flow-wrapper">
+      <div class="flow-controls">
+        <button class="btn" id="flowPrev">← Anterior</button>
+        <button class="btn" id="flowNext">Próximo →</button>
+        <button class="btn btn-secondary" id="flowReset">Reiniciar</button>
+        <span style="margin-left: auto; color: var(--text-muted); font-size: 14px;" id="flowCounter">Etapa 1 de 8</span>
+      </div>
+
+      <div class="flow-stepper" id="flowStepper">
+        <div class="step-pill active" data-step="0">1. Aviso</div>
+        <div class="step-pill" data-step="1">2. CG</div>
+        <div class="step-pill" data-step="2">3. Checklist</div>
+        <div class="step-pill" data-step="3">4. Doc chega</div>
+        <div class="step-pill" data-step="4">5. Validação</div>
+        <div class="step-pill" data-step="5">6. Re-checklist</div>
+        <div class="step-pill" data-step="6">7. Elegibilidade</div>
+        <div class="step-pill" data-step="7">8. Parecer</div>
+      </div>
+
+      <div class="flow-stage" id="flowStage">
+        <!-- preenchido por JS -->
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     LOOP
+     ============================================================ -->
+<section id="loop" class="loop-section">
+  <div class="container">
+    <div class="section-label">O Loop</div>
+    <h2>Por que o checklist é vivo: re-avaliação a cada documento</h2>
+    <p class="lead" style="color: #CBD5E1;">
+      A regulação não é linear. Cada documento que chega pode revelar nova ramificação. A
+      certidão de óbito mostra que foi acidente — agora você precisa de toxicológico. O laudo
+      sugere doença preexistente — agora você precisa do histórico médico. O sistema gira esse
+      loop por baixo, o regulador só vê o resultado.
+    </p>
+
+    <div class="loop-container">
+      <div class="loop-svg-wrap">
+        <svg class="loop-svg" viewBox="0 0 400 400" id="loopSvg">
+          <!-- background circle -->
+          <circle class="bg" cx="200" cy="200" r="160"/>
+          <!-- progress arc -->
+          <circle class="progress" cx="200" cy="200" r="160"
+                  stroke-dasharray="1005"
+                  stroke-dashoffset="1005"
+                  transform="rotate(-90 200 200)"
+                  id="loopProgress"/>
+
+          <!-- 6 nodes around the circle -->
+          <g class="loop-node" id="node-0" data-step="0">
+            <circle cx="200" cy="40" r="22"/>
+            <text x="200" y="44">1</text>
+          </g>
+          <g class="loop-node" id="node-1" data-step="1">
+            <circle cx="338.5" cy="120" r="22"/>
+            <text x="338.5" y="124">2</text>
+          </g>
+          <g class="loop-node" id="node-2" data-step="2">
+            <circle cx="338.5" cy="280" r="22"/>
+            <text x="338.5" y="284">3</text>
+          </g>
+          <g class="loop-node" id="node-3" data-step="3">
+            <circle cx="200" cy="360" r="22"/>
+            <text x="200" y="364">4</text>
+          </g>
+          <g class="loop-node" id="node-4" data-step="4">
+            <circle cx="61.5" cy="280" r="22"/>
+            <text x="61.5" y="284">5</text>
+          </g>
+          <g class="loop-node" id="node-5" data-step="5">
+            <circle cx="61.5" cy="120" r="22"/>
+            <text x="61.5" y="124">6</text>
+          </g>
+
+          <!-- center label -->
+          <text x="200" y="195" text-anchor="middle" fill="#94A3B8" font-size="11" font-weight="600" letter-spacing="2">CICLO DE</text>
+          <text x="200" y="215" text-anchor="middle" fill="white" font-size="16" font-weight="700">RE-AVALIAÇÃO</text>
+        </svg>
+      </div>
+
+      <div class="loop-steps">
+        <div class="loop-step active" data-step="0">
+          <span class="loop-step-num">01</span>
+          <div class="loop-step-title">Documento chega</div>
+          <div class="loop-step-desc">Evento dispara o pipeline. Pode ser a CDO inicial, um laudo do IML, comprovante de bancário, qualquer coisa.</div>
+        </div>
+        <div class="loop-step" data-step="1">
+          <span class="loop-step-num">02</span>
+          <div class="loop-step-title">Extração estruturada</div>
+          <div class="loop-step-desc">Agente extrator transforma o documento em entidades: causa, datas, nomes, números. Function calling, zero invenção.</div>
+        </div>
+        <div class="loop-step" data-step="2">
+          <span class="loop-step-num">03</span>
+          <div class="loop-step-title">Validação cruzada</div>
+          <div class="loop-step-desc">Código determinístico cruza com o CaseState. Datas batem? Nomes correspondem? Documentos suficientes?</div>
+        </div>
+        <div class="loop-step" data-step="3">
+          <span class="loop-step-num">04</span>
+          <div class="loop-step-title">CaseState atualizado</div>
+          <div class="loop-step-desc">Nova informação entra no estado do caso. Versionamento e audit log preservam o que mudou e por quê.</div>
+        </div>
+        <div class="loop-step" data-step="4">
+          <span class="loop-step-num">05</span>
+          <div class="loop-step-title">Checklist re-gerado</div>
+          <div class="loop-step-desc"><strong style="color:white;">Qualquer documento pode disparar:</strong> certidão de óbito revela causa, declaração de herdeiros revela número de filhos (cruzar com RGs), laudo médico revela doença e estágio, IML detalha circunstâncias do acidente, exames laboratoriais quantificam função clínica. Agente re-roda sobre o CaseState atualizado e ajusta o checklist — sempre com justificativa.</div>
+        </div>
+        <div class="loop-step" data-step="5">
+          <span class="loop-step-num">06</span>
+          <div class="loop-step-title">Pendência comunicada</div>
+          <div class="loop-step-desc">Workflow do cliente recebe o enriquecimento. O regulador vê o que ainda falta e por quê. Beneficiário é notificado.</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 32px; text-align: center;">
+      <button class="btn" id="loopPlay" style="background: var(--augment);">▶ Reproduzir o loop</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     CENÁRIO ILUSTRATIVO
+     ============================================================ -->
+<section id="cenario">
+  <div class="container">
+    <div class="section-label">Cenário ilustrativo</div>
+    <h2>Um caso real, do começo ao fim</h2>
+    <p class="lead">
+      Vamos seguir um sinistro de ponta a ponta para mostrar como cada componente entra em ação.
+      Caso fictício, mas representativo do volume diário de uma regulação de seguro de vida.
+    </p>
+
+    <div class="scenario-hero">
+      <h3>Maria, 42 anos, segurada Vida Multipremiado Total</h3>
+      <p style="font-size: 15px; color: var(--text-muted);">Falece em acidente de trânsito em 15/03/2025. Beneficiário: filho único, maior de idade.</p>
+
+      <div class="case-meta">
+        <div class="case-meta-item">
+          <div class="label">Produto</div>
+          <div class="value">Vida Multipremiado Total</div>
+        </div>
+        <div class="case-meta-item">
+          <div class="label">Causa</div>
+          <div class="value">Acidente de trânsito</div>
+        </div>
+        <div class="case-meta-item">
+          <div class="label">Vigência</div>
+          <div class="value">Em vigor há 4 anos</div>
+        </div>
+        <div class="case-meta-item">
+          <div class="label">Beneficiário</div>
+          <div class="value">Indicado em apólice</div>
+        </div>
+      </div>
+
+      <div class="scenario-steps">
+        <div class="scenario-step">
+          <div class="scenario-step-num">1</div>
+          <div class="scenario-step-content">
+            <h4>Beneficiário abre sinistro no portal da seguradora</h4>
+            <p>Workflow do cliente registra o aviso. <code>POST /regulacoes</code> chega na nossa plataforma com <code>{sinistro_id, produto, causa_presumida, beneficiario}</code>.</p>
+            <div class="scenario-step-actor">
+              <span class="actor-chip actor-client">Workflow do Cliente</span>
+              <span class="actor-chip actor-augment">Orquestrador</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="scenario-step">
+          <div class="scenario-step-num">2</div>
+          <div class="scenario-step-content">
+            <h4>Identificação da condição geral correta</h4>
+            <p>Provider consulta Postgres pra encontrar a CG de Vida Multipremiado Total vigente em 15/03/2025. Como já está indexada, o MCP devolve o mapa de navegação direto pro agente.</p>
+            <div class="scenario-step-actor">
+              <span class="actor-chip actor-augment">Provider CVP</span>
+              <span class="actor-chip actor-tooling">MCP de CG</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="scenario-step">
+          <div class="scenario-step-num">3</div>
+          <div class="scenario-step-content">
+            <h4>Geração do checklist inicial — Padrão CVP + CG + OT</h4>
+            <p>Agente parte do <strong>checklist padrão CVP pra morte</strong> (CDO, RG do segurado, comprovante de residência, formulário de aviso). Consulta a CG via MCP — cláusula 13.9.2 confirma cobertura e adiciona RG do beneficiário indicado. Consulta OTs vigentes via MCP — OT-2024-018 (lei de dados bancários de 2024) adiciona <strong>comprovante de conta bancária</strong>. Justificativa por item cita a fonte (padrão CVP, cláusula da CG, ou OT).</p>
+            <div class="scenario-step-actor">
+              <span class="actor-chip actor-agentic">Gerador de Checklist</span>
+              <span class="actor-chip actor-tooling">Padrão CVP</span>
+              <span class="actor-chip actor-tooling">MCP de CG</span>
+              <span class="actor-chip actor-tooling">MCP de OT</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="scenario-step">
+          <div class="scenario-step-num">4</div>
+          <div class="scenario-step-content">
+            <h4>Beneficiário envia certidão de óbito</h4>
+            <p>Documento entra no sistema. OCR extrai texto. Agente extrator estrutura: causa = "acidente de transporte", data = 15/03/2025, local = "BR-101 km 230". Validador confirma assinatura digital. <strong>Loop dispara.</strong></p>
+            <div class="scenario-step-actor">
+              <span class="actor-chip actor-client">Workflow do Cliente</span>
+              <span class="actor-chip actor-tooling">OCR + Validador</span>
+              <span class="actor-chip actor-agentic">Extrator de Entidades</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="scenario-step">
+          <div class="scenario-step-num">5</div>
+          <div class="scenario-step-content">
+            <h4>Re-geração do checklist com causa confirmada</h4>
+            <p>Causa agora é <em>confirmada por documento</em>, não mais presumida. Agente re-roda e identifica cláusula 13.9.3 (morte por acidente). Adiciona ao checklist: BO, laudo do IML, exames toxicológicos, laudo pericial, CNH (já que conduzia). Item "CDO" passa a "cumprido".</p>
+            <div class="scenario-step-actor">
+              <span class="actor-chip actor-augment">Orquestrador</span>
+              <span class="actor-chip actor-agentic">Gerador de Checklist</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="scenario-step">
+          <div class="scenario-step-num">6</div>
+          <div class="scenario-step-content">
+            <h4>BO e laudo do IML chegam</h4>
+            <p>Validador cruza: data do BO (15/03/2025) bate com CDO. Local consistente. IML confirma causa como acidente de transporte. Toxicológico negativo para álcool e substâncias. <em>Nenhuma exclusão da CG dispara.</em></p>
+            <div class="scenario-step-actor">
+              <span class="actor-chip actor-tooling">Validador Documental</span>
+              <span class="actor-chip actor-augment">Orquestrador</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="scenario-step">
+          <div class="scenario-step-num">7</div>
+          <div class="scenario-step-content">
+            <h4>Análise de elegibilidade</h4>
+            <p>Agente de elegibilidade avalia: produto cobre morte acidental (sim, cláusula 6.1), nenhuma exclusão aplicável, documentação completa. Recomendação: <strong>habilitar para parecer</strong>. Encaminha pro regulador.</p>
+            <div class="scenario-step-actor">
+              <span class="actor-chip actor-agentic">Agente de Elegibilidade</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="scenario-step">
+          <div class="scenario-step-num">8</div>
+          <div class="scenario-step-content">
+            <h4>Regulador conversa com copiloto e gera parecer</h4>
+            <p>Lucas, regulador, abre o Teams. Pergunta "tem alguma coisa que eu preciso me preocupar nesse caso?". Copiloto responde com base no CaseState: documentação completa, sem exclusões, cobertura confirmada. Lucas pede o parecer rascunho, revisa as 3 menções de cláusula, ajusta o tom, aprova. Pagamento liberado.</p>
+            <div class="scenario-step-actor">
+              <span class="actor-chip actor-augment">Teams App</span>
+              <span class="actor-chip actor-agentic">Copiloto</span>
+              <span class="actor-chip actor-agentic">Gerador de Parecer</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="insight" style="margin-top: 32px;">
+        <p><strong>O ganho percebido pelo cliente:</strong> Lucas tocou no caso uma vez no final.
+        Não passou tempo procurando cláusula, não cruzou nomes de herdeiros à mão, não pediu
+        documento errado nem esqueceu de pedir. O sistema fez o trabalho de pavimentação. Ele
+        fez o que humano faz melhor: julgou e decidiu.</p>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         CENÁRIO 2 — Doenças graves (caso complexo)
+         ============================================================ -->
+    <div class="scenario-hero" style="margin-top: 32px; border-top: 4px solid var(--agentic);">
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap;">
+        <span class="layer-tag agentic" style="font-size: 11px;">Caso complexo</span>
+        <span style="font-size: 13px; color: var(--text-muted); font-style: italic;">Onde o sistema mais economiza tempo</span>
+      </div>
+      <h3>Carlos, 58 anos, morte por doença renal crônica grave</h3>
+      <p style="font-size: 15px; color: var(--text-muted);">Segurado de VMP Total falece em decorrência de doença renal crônica em estágio avançado. <strong>Não havia beneficiário indicado em apólice</strong> — os 4 filhos precisam se habilitar como herdeiros. Como a causa é doença, o sistema precisa cruzar histórico médico com a CG pra confirmar que nenhuma exclusão se aplica (preexistência, carência específica).</p>
+
+      <div class="case-meta">
+        <div class="case-meta-item">
+          <div class="label">Produto</div>
+          <div class="value">VMP Total</div>
+        </div>
+        <div class="case-meta-item">
+          <div class="label">Causa morte</div>
+          <div class="value">Doença renal crônica</div>
+        </div>
+        <div class="case-meta-item">
+          <div class="label">Beneficiário</div>
+          <div class="value">Não indicado → 4 herdeiros</div>
+        </div>
+        <div class="case-meta-item">
+          <div class="label">Vigência</div>
+          <div class="value">Em vigor há 6 anos</div>
+        </div>
+      </div>
+
+      <div class="scenario-steps">
+        <div class="scenario-step">
+          <div class="scenario-step-num">1</div>
+          <div class="scenario-step-content">
+            <h4>Família abre sinistro — sem beneficiário indicado</h4>
+            <p>Workflow do cliente registra o aviso. Sistema cria CaseState e já identifica a particularidade: sem beneficiário em apólice, a alínea (e) da cláusula 13.9.2 entra em jogo — herdeiros precisam comprovar a condição de sucessores. Pré-elegibilidade marca alerta clínico: causa presumida é doença, então exclusões por preexistência precisam ser verificadas adiante.</p>
+            <div class="scenario-step-actor">
+              <span class="actor-chip actor-client">Workflow do Cliente</span>
+              <span class="actor-chip actor-augment">Orquestrador</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="scenario-step">
+          <div class="scenario-step-num">2</div>
+          <div class="scenario-step-content">
+            <h4>Checklist inicial combina Padrão CVP + CG + OT</h4>
+            <p>Agente parte do <strong>checklist padrão CVP pra morte</strong> (CDO, RG do segurado, comprovante, formulário de aviso por morte). Consulta a CG via MCP — identifica três camadas: cláusula 13.9.2 (morte), alínea (e) — sucessão hereditária — que aciona <strong>declaração de herdeiros + RG de cada herdeiro + certidões de estado civil</strong>, e seções de exclusões clínicas. Consulta OTs vigentes via MCP — pega OT sobre investigação de preexistência em morte por doença, OT sobre prazo pra parecer médico, e OT-2024-018 sobre dados bancários (replicada pra cada herdeiro). Checklist final: padrão + RGs dos herdeiros + certidões + parecer médico + histórico médico + <strong>comprovante bancário de cada herdeiro</strong>.</p>
+            <div class="scenario-step-actor">
+              <span class="actor-chip actor-agentic">Gerador de Checklist</span>
+              <span class="actor-chip actor-tooling">Padrão CVP</span>
+              <span class="actor-chip actor-tooling">MCP de CG</span>
+              <span class="actor-chip actor-tooling">MCP de OT</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="scenario-step">
+          <div class="scenario-step-num">3</div>
+          <div class="scenario-step-content">
+            <h4>Certidão de óbito chega — primeiro disparo do loop</h4>
+            <p>OCR + extrator processam a CDO. Causa identificada: "doença renal crônica grave em estágio avançado". Validador percebe que causa é DOENÇA e aciona re-avaliação focada: agora o sistema sabe que precisa cruzar com cláusulas de exclusão por preexistência e com carência específica pra morte por doença. Re-checklist confirma os documentos médicos como bloqueantes.</p>
+            <div class="scenario-step-actor">
+              <span class="actor-chip actor-tooling">OCR + Validador</span>
+              <span class="actor-chip actor-agentic">Extrator de Entidades</span>
+              <span class="actor-chip actor-augment">Orquestrador</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="scenario-step">
+          <div class="scenario-step-num">4</div>
+          <div class="scenario-step-content">
+            <h4>Habilitação dos herdeiros chega parcial — loop dispara de novo</h4>
+            <p>Declaração de herdeiros aponta 4 filhos: João, Maria, Pedro, Ana. RGs recebidos: 3 (João, Maria, Pedro). Validador determinístico cruza nomes e datas de nascimento: bate em 3 herdeiros, falta o RG da Ana. Sistema marca pendência específica e específica nominalmente: "<em>Falta RG da herdeira Ana Carolina Silva</em>". Cliente é notificado pra coletar.</p>
+            <div class="scenario-step-actor">
+              <span class="actor-chip actor-tooling">Validador Documental</span>
+              <span class="actor-chip actor-augment">Orquestrador</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="scenario-step">
+          <div class="scenario-step-num">5</div>
+          <div class="scenario-step-content">
+            <h4>Parecer médico chega — 12 páginas de prosa clínica</h4>
+            <p>O laudo do nefrologista <strong>não é estruturado</strong>. Terminologia médica densa, evolução narrativa, valores misturados com interpretação clínica. Extrator estrutura: data do primeiro diagnóstico (há 4 anos, dentro de vigência mas após a contratação), evolução natural da doença, ausência de comorbidades preexistentes não declaradas, classificação evolutiva. Validador cruza com a CG via MCP — confirma que <em>nenhuma exclusão por preexistência</em> se aplica.</p>
+            <div class="scenario-step-actor">
+              <span class="actor-chip actor-tooling">OCR + MCP de CG</span>
+              <span class="actor-chip actor-agentic">Extrator + Validador Clínico</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="scenario-step">
+          <div class="scenario-step-num">6</div>
+          <div class="scenario-step-content">
+            <h4>Último RG chega — habilitação completa, elegibilidade confirmada</h4>
+            <p>RG da Ana entra. Validador cruza nome e data de nascimento contra a declaração de herdeiros — bate. Herdeiros 100% habilitados. Elegibilidade final é re-avaliada: cobertura morte presente, causa não excluída, carência cumprida, herdeiros habilitados conforme alínea (e). Agente recomenda <strong>habilitar para parecer</strong>.</p>
+            <div class="scenario-step-actor">
+              <span class="actor-chip actor-tooling">Validador Documental</span>
+              <span class="actor-chip actor-agentic">Agente de Elegibilidade</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="scenario-step">
+          <div class="scenario-step-num">7</div>
+          <div class="scenario-step-content">
+            <h4>Regulador gera o parecer técnico via copiloto</h4>
+            <p>Lucas abre o Teams. Pergunta primeiro: <em>"tem algo no parecer médico que sugira preexistência ou exclusão?"</em> Copiloto responde citando trechos do laudo e a cláusula correspondente da CG. Lucas confirma o entendimento, então pede: <strong>"monte o parecer técnico justificando a cobertura"</strong>. Copiloto produz rascunho citando cláusula 13.9.2 (cobertura), alínea (e) (herdeiros habilitados), cláusulas de exclusão verificadas e descartadas, e as datas-chave que sustentam carência. Lucas revisa, ajusta tom pra carta amigável, aprova. Pagamento liberado pros 4 herdeiros.</p>
+            <div class="scenario-step-actor">
+              <span class="actor-chip actor-augment">Teams App</span>
+              <span class="actor-chip actor-agentic">Copiloto + Gerador de Parecer</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="insight" style="margin-top: 32px; background: linear-gradient(135deg, #F5F3FF 0%, #FAF5FF 100%); border-left-color: var(--agentic);">
+        <p><strong>Por que esse caso importa mais:</strong> o loop girou várias vezes — CDO, herdeiros parciais, parecer médico, último RG. A cada documento, o sistema re-avaliou checklist e elegibilidade. Sem essa pavimentação, Lucas teria que cruzar 4 nomes de herdeiros × N RGs manualmente, ler 12 páginas de parecer médico procurando indícios de preexistência, navegar 100+ páginas de CG pra confirmar exclusões e ainda escrever o parecer técnico do zero. Com o sistema, ele entrou no caso uma vez no final pra validar e gerar o parecer com o copiloto. Caso complexo que tomava meio dia passa a tomar 30 minutos.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     ROADMAP
+     ============================================================ -->
+<section id="roadmap" style="background: var(--bg-soft);">
+  <div class="container">
+    <div class="section-label">Roadmap</div>
+    <h2>Onde estamos, o que vem</h2>
+    <p class="lead">A plataforma é entregue em ondas. As primeiras camadas — indexação, MCP, integração com OCR, checklist base — já estão em produção. As próximas resolvem cruzamento documental, OT e introduzem o orquestrador com loop iterativo.</p>
+
+    <div class="roadmap">
+      <div class="roadmap-col done">
+        <div class="roadmap-col-header">
+          <span class="dot"></span>
+          <h3>Entregue</h3>
+        </div>
+        <div class="roadmap-card">Indexador de CG <span class="small">Páginas classificadas, índice navegável, blob versionado</span></div>
+        <div class="roadmap-card">MCP de CG <span class="small">5 tools de navegação read-only expostas pra agentes</span></div>
+        <div class="roadmap-card">Pipeline de indexação <span class="small">Receiver + worker + Service Bus + blob; orquestração da indexação usa a plataforma agêntica pra classificar e gerar o mapa</span></div>
+        <div class="roadmap-card">Teams App <span class="small">SSO, chat persistente, BFF + React</span></div>
+        <div class="roadmap-card">Integração com OCR do cliente <span class="small">Documentos do sinistro entram já com texto extraído</span></div>
+        <div class="roadmap-card">Geração de checklist base com CG <span class="small">Primeira interação já em produção, fundamentada na CG indexada</span></div>
+      </div>
+
+      <div class="roadmap-col progress">
+        <div class="roadmap-col-header">
+          <span class="dot"></span>
+          <h3>Em desenvolvimento</h3>
+        </div>
+        <div class="roadmap-card">Catálogo Postgres de CG <span class="small">Onda 2 — source-of-truth com vigência legal, código SUSEP, status de validação</span></div>
+        <div class="roadmap-card">Validador documental <span class="small">Cruzamento estruturado: 5 herdeiros × 5 RGs, datas, assinaturas, reconhecimento em cartório</span></div>
+        <div class="roadmap-card">Agente de elegibilidade <span class="small">Existe e funciona com CG; ainda não consulta OTs — depende do indexador de OT estabilizado</span></div>
+        <div class="roadmap-card">Indexador de OT <span class="small">Existe em primeira versão; está sendo refeito — exige reindexação completa pelo cliente</span></div>
+      </div>
+
+      <div class="roadmap-col planned">
+        <div class="roadmap-col-header">
+          <span class="dot"></span>
+          <h3>Planejado / Em design</h3>
+        </div>
+        <div class="roadmap-card">MCP de OT <span class="small">Filtro por produto, causa, data, escopo — após indexador de OT estabilizado</span></div>
+        <div class="roadmap-card"><strong>Orquestrador de regulação + Loop</strong> <span class="small">Re-avaliação event-driven a cada documento — <em>o desafio central das próximas ondas, ainda em design</em></span></div>
+        <div class="roadmap-card">Gerador de parecer rascunho <span class="small">Templates por desfecho, citação obrigatória de cláusulas e OTs aplicadas</span></div>
+        <div class="roadmap-card">Bot WhatsApp pra recepção de documentos <span class="small">Beneficiários já mandam docs por WhatsApp hoje (manual). Bot automatiza: recebe, classifica, identifica sinistro, entra no loop. Direciona dúvidas pro canal de voz — regra CVP.</span></div>
+        <div class="roadmap-card">Copiloto conversacional pro Atendimento <span class="small">Apoia atendente durante a ligação: consulta CaseState em tempo real, informa status, documentos faltantes, próximo passo. Mantém o canal de voz humano.</span></div>
+        <div class="roadmap-card">Loop de feedback do regulador <span class="small">Correções do checklist e parecer alimentam a base de OT — conhecimento cresce orgânico</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     FOOTER
+     ============================================================ -->
+<footer>
+  <div class="container">
+    <div class="brand">Concept Seguro — Plataforma de Regulação de Sinistro</div>
+    <div class="meta">Documento de fluxo · v1 · 2026</div>
+  </div>
+</footer>
+
+<!-- ============================================================
+     SCRIPT
+     ============================================================ -->
+<script>
+  // =============================================================
+  // FLUXO END-TO-END — stepper interativo
+  // =============================================================
+  const stages = [
+    {
+      title: "Aviso de sinistro recebido",
+      desc: "O workflow do cliente registra a abertura e dispara um POST /regulacoes pra nossa plataforma. O orquestrador cria o CaseState inicial e enfileira a identificação da CG.",
+      actors: ["client", "augment"],
+      detail: "Eventos típicos: sinistro_id, produto, beneficiario, causa_presumida, data_evento."
+    },
+    {
+      title: "Identificação da condição geral",
+      desc: "O provider da seguradora consulta o catálogo Postgres pra encontrar a CG correta (com vigência válida na data do sinistro). Se já está indexada, MCP devolve o mapa direto.",
+      actors: ["augment", "tooling"],
+      detail: "Hoje: match por sub_produto + ano_adesao. Onda 2: vigência legal via SUSEP."
+    },
+    {
+      title: "Checklist inicial + pré-elegibilidade",
+      desc: "Agente parte do <strong>padrão CVP</strong> pro tipo de sinistro (a 'lei da CVP' — checklist inicial obrigatório por tipo: morte qualquer causa, morte acidental, invalidez, etc.), e enriquece consultando <strong>CG</strong> via MCP (especificidades do produto) e <strong>OT</strong> via MCP (mudanças vivas: leis novas, ajustes operacionais, decisões estratégicas). Combina os três pra propor lista de documentos com justificativa. Em paralelo, agente de elegibilidade faz pré-verificação rápida — especialmente útil pra produtos tipo bilhete: se a causa presumida não bate com o que o produto cobre, propõe indeferimento aqui.",
+      actors: ["agentic", "tooling"],
+      detail: "Exemplo da combinação: padrão CVP pra morte exige CDO + RG + comprovante. CG do produto adiciona declaração de herdeiros se sem beneficiário indicado. OT-2024-018 adiciona comprovante bancário. Checklist final tem todos. Cada fonte agregou o que faltava nas outras."
+    },
+    {
+      title: "Documento chega — loop dispara",
+      desc: "Beneficiário envia documento via workflow do cliente. Sistema OCR extrai texto. Agente extrator estrutura em entidades. Validador checa assinatura.",
+      actors: ["client", "tooling", "agentic"],
+      detail: "Esse é o ponto crítico: a partir daqui, o sistema é event-driven. Cada novo documento dispara re-avaliação."
+    },
+    {
+      title: "Validação cruzada",
+      desc: "Código determinístico cruza dados extraídos com o CaseState. Nomes batem? Datas consistentes? Quantidade de documentos corresponde ao esperado?",
+      actors: ["augment", "tooling"],
+      detail: "Aqui mora a lógica IF. LLM extrai, código compara, LLM volta pra explicar resultados ao regulador."
+    },
+    {
+      title: "Checklist re-gerado",
+      desc: "Com o CaseState atualizado, o agente de checklist re-roda consultando <strong>CG e OT</strong> juntas. Pode adicionar requisitos (causa confirmada como acidente → toxicológico, conforme cláusula da CG; ou procedimento específico, conforme OT vigente), marcar itens como cumpridos, ou identificar conflitos. A re-execução considera inclusive OTs publicadas <em>depois</em> do início do sinistro, se forem aplicáveis ao caso.",
+      actors: ["augment", "agentic", "tooling"],
+      detail: "Versionamento do checklist preserva histórico. Auditoria mostra cada mudança e a justificativa (cláusula X da CG / OT-YYYY-NNN). Isso é crítico pra defesa em eventual contestação."
+    },
+    {
+      title: "Elegibilidade final",
+      desc: "Com documentação completa, agente faz a análise definitiva: cobertura confirmada, exclusões não aplicáveis, carências cumpridas, classificação clínica compatível. É o segundo momento de elegibilidade — o primeiro foi na etapa 3 (pré-check). Para doenças graves, é aqui que mora o cruzamento profundo entre laudos médicos não-estruturados e os critérios clínicos detalhados da CG.",
+      actors: ["agentic", "tooling"],
+      detail: "Em casos de doença grave (ex: CDGCA), a CG tem 20+ páginas de critérios clínicos por patologia (cardíaca grau III/IV, renal classe II/III, neoplásica com mau prognóstico, etc). O indexador + MCP fazem o agente navegar direto na seção da doença específica, em vez de processar o documento inteiro."
+    },
+    {
+      title: "Geração do parecer técnico",
+      desc: "É aqui que o copiloto mais entrega valor visível pro regulador. Primeiro ele esclarece pontos abertos do caso (cláusulas aplicáveis, exclusões consideradas, validações cruzadas). Depois o regulador pede a geração do parecer técnico fundamentado. Copiloto produz o rascunho citando cláusulas da CG, OTs aplicadas, documentos validados e o cruzamento que sustenta a decisão. Regulador revisa, ajusta tom (carta amigável pra deferimento, técnica pra recusa), aprova. Workflow do cliente recebe o parecer formal.",
+      actors: ["augment", "agentic"],
+      detail: "Sempre humano na decisão final — o copiloto produz o rascunho técnico, o regulador valida e dá o tom. Cada cláusula citada, cada documento referenciado, cada modificação do regulador entra no audit log. O parecer é o output formal que volta pro workflow do cliente e pro beneficiário."
+    }
+  ];
+
+  const actorLabels = {
+    client: ["actor-client", "Workflow do Cliente"],
+    augment: ["actor-augment", "Camada de Aumento"],
+    agentic: ["actor-agentic", "Plataforma Agêntica"],
+    tooling: ["actor-tooling", "Tooling / MCP"]
+  };
+
+  let currentStep = 0;
+
+  function renderStep(i) {
+    const stage = stages[i];
+    const stageEl = document.getElementById('flowStage');
+    stageEl.innerHTML = `
+      <div class="flow-stage-num">${i+1}</div>
+      <h3>${stage.title}</h3>
+      <p style="font-size: 16px; color: var(--text-strong); max-width: 60ch;">${stage.desc}</p>
+      <div class="stage-actors">
+        ${stage.actors.map(a => `<span class="actor-chip ${actorLabels[a][0]}">${actorLabels[a][1]}</span>`).join('')}
+      </div>
+      <div class="stage-detail">
+        <h4>Detalhe técnico</h4>
+        <p>${stage.detail}</p>
+      </div>
+    `;
+    document.querySelectorAll('#flowStepper .step-pill').forEach((p, idx) => {
+      p.classList.remove('active', 'done');
+      if (idx < i) p.classList.add('done');
+      if (idx === i) p.classList.add('active');
+    });
+    document.getElementById('flowCounter').textContent = `Etapa ${i+1} de ${stages.length}`;
+  }
+
+  document.getElementById('flowNext').addEventListener('click', () => {
+    if (currentStep < stages.length - 1) { currentStep++; renderStep(currentStep); }
+  });
+  document.getElementById('flowPrev').addEventListener('click', () => {
+    if (currentStep > 0) { currentStep--; renderStep(currentStep); }
+  });
+  document.getElementById('flowReset').addEventListener('click', () => {
+    currentStep = 0; renderStep(0);
+  });
+  document.querySelectorAll('#flowStepper .step-pill').forEach(p => {
+    p.addEventListener('click', () => {
+      currentStep = parseInt(p.dataset.step);
+      renderStep(currentStep);
+    });
+  });
+  renderStep(0);
+
+  // =============================================================
+  // LOOP — animação manual + play
+  // =============================================================
+  const loopSteps = document.querySelectorAll('.loop-step');
+  const loopNodes = document.querySelectorAll('.loop-node');
+  const loopProgress = document.getElementById('loopProgress');
+  const TOTAL_NODES = 6;
+  const ARC_LENGTH = 1005; // 2 * pi * 160
+
+  function setLoopStep(i) {
+    loopSteps.forEach((s, idx) => s.classList.toggle('active', idx === i));
+    loopNodes.forEach((n, idx) => n.classList.toggle('active', idx === i));
+    const progress = ((i + 1) / TOTAL_NODES) * ARC_LENGTH;
+    loopProgress.style.strokeDashoffset = ARC_LENGTH - progress;
+  }
+
+  loopSteps.forEach((s, i) => {
+    s.addEventListener('click', () => setLoopStep(i));
+  });
+  loopNodes.forEach((n, i) => {
+    n.style.cursor = 'pointer';
+    n.addEventListener('click', () => setLoopStep(i));
+  });
+
+  let loopPlaying = false;
+  document.getElementById('loopPlay').addEventListener('click', () => {
+    if (loopPlaying) return;
+    loopPlaying = true;
+    let i = 0;
+    setLoopStep(0);
+    const interval = setInterval(() => {
+      i++;
+      if (i >= TOTAL_NODES) {
+        clearInterval(interval);
+        loopPlaying = false;
+        // restart from 0 visually with a soft delay
+        setTimeout(() => setLoopStep(0), 1200);
+        return;
+      }
+      setLoopStep(i);
+    }, 1400);
+  });
+
+  // initial state
+  setLoopStep(0);
+
+  // =============================================================
+  // Keyboard nav for the flow stepper (arrow keys)
+  // =============================================================
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.key === 'ArrowRight') {
+      if (currentStep < stages.length - 1) { currentStep++; renderStep(currentStep); }
+    } else if (e.key === 'ArrowLeft') {
+      if (currentStep > 0) { currentStep--; renderStep(currentStep); }
+    }
+  });
+</script>
+
+</body>
+</html>
