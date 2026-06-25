@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Hospital Elastico — Distribuição Inteligente (protótipo)</title>
+<title>Elastic Dispatcher — Distribuição Inteligente (protótipo)</title>
 <style>
   :root{
     --bg:#0f172a; --panel:#1e293b; --panel2:#243149; --line:#334155;
@@ -15,6 +15,13 @@
   header{padding:14px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:16px;flex-wrap:wrap}
   header h1{font-size:16px;margin:0;font-weight:600}
   header .tag{font-size:11px;color:var(--muted);border:1px solid var(--line);padding:2px 8px;border-radius:20px}
+  .banner{margin:14px 16px 0;padding:11px 14px;background:#11243f;border:1px solid #1d4ed8;border-left:4px solid #3b82f6;border-radius:9px;font-size:12px;line-height:1.6;color:#dbeafe}
+  .stats{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+  .stat{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 14px;min-width:84px}
+  .stat .n{font-size:20px;font-weight:700;line-height:1.1}
+  .stat .l{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:2px}
+  .stat.ok .n{color:#4ade80} .stat.warn .n{color:#fbbf24} .stat.bad .n{color:#f87171}
+  .stat.km .n{color:#60a5fa} .stat.idle .n{color:#cbd5e1}
   .wrap{display:flex;gap:16px;padding:16px;align-items:flex-start;flex-wrap:wrap}
   .col{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
   .col h2{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:0 0 10px}
@@ -92,17 +99,23 @@
 </head>
 <body>
 <header>
-  <h1>Hospital Elastico · Distribuição Inteligente</h1>
+  <h1>Elastic Dispatcher · Distribuição Inteligente</h1>
   <span class="tag">protótipo · dados fictícios</span>
   <span class="tag">modo copiloto (sugere, humano confirma)</span>
 </header>
+
+<div class="banner">
+  <b>ℹ️ Como ler esta demo:</b> aqui a distribuição já aparece pronta e o botão <b>⚡ Distribuir</b> serve só pra você ver as regras agindo passo a passo.
+  Na <b>implementação real é 100% automático e orientado a eventos</b>: assim que um chamado entra pelo CMMS do hospital, o motor aplica as regras (especialidade, raio, horário, pesos por cliente) e distribui sozinho — <b>sem clique</b>. O humano só atua nos casos sinalizados em amarelo/vermelho.
+</div>
 
 <div class="wrap">
   <div class="col" id="pending">
     <h2>Chamados pendentes</h2>
     <div id="pendingList"></div>
-    <button id="distribuir" style="width:100%;margin-top:6px">⚡ Distribuir automaticamente</button>
-    <button class="ghost" id="reset" style="width:100%;margin-top:6px">Resetar</button>
+    <button id="distribuir" style="width:100%;margin-top:6px">⚡ Rodar distribuição (simula o automático)</button>
+    <button class="ghost" id="demo" style="width:100%;margin-top:6px">⚠ Demo: gerar conflito de horário</button>
+    <button class="ghost" id="reset" style="width:100%;margin-top:6px">Limpar (ver chamados ainda não distribuídos)</button>
     <div class="legend">
       <span><span class="dot" style="background:var(--green)"></span>Ok</span>
       <span><span class="dot" style="background:var(--amber)"></span>Conflito / override</span>
@@ -116,6 +129,7 @@
       <button class="view ghost" data-v="hosp">Por hospital</button>
       <button class="view ghost" data-v="cfg">⚙ Configuração</button>
     </div>
+    <div class="stats" id="stats"></div>
     <div id="grid"></div>
     <div class="alerts" id="alerts"></div>
   </div>
@@ -151,6 +165,9 @@ function baseChamados(){ return [
   {id:'c5', eq:'Lyric coleta',    hospital:'Hosp. Sírio',       cidade:'São Paulo',      data:2, slot:0, esp:'Lyric',   pri:'baixa', tec:null},
   {id:'c6', eq:'BACTEC preventiva',hospital:'Lab Botucatu',     cidade:'Campinas',       data:2, slot:1, esp:'BACTEC', pri:'media', tec:null},
   {id:'c7', eq:'BD8 corretiva',   hospital:'Hosp. Rio Claro',   cidade:'Rio Claro',      data:0, slot:0, esp:'BD8',    pri:'alta',  tec:null},
+  // dois chamados de Santo André no mesmo dia/slot — o botão "Demo conflito" força os dois no Alexandre
+  {id:'c8', eq:'BACTEC urgência',  hospital:'Hosp. ABC Saúde',  cidade:'Santo André',    data:0, slot:0, esp:'BACTEC', pri:'alta',  tec:null},
+  {id:'c9', eq:'Phoenix instalação',hospital:'Santa Casa ABC',  cidade:'Santo André',    data:0, slot:0, esp:'Phoenix',pri:'media', tec:null},
 ];}
 
 // ---------- CONFIG (o que a Núbia ajustaria por cliente) ----------
@@ -200,7 +217,7 @@ function distribuir(){
     const livres = elegiveis(ch).filter(t => !ocupado(t.id, ch.data, ch.slot));
     if(livres.length){
       const best = livres.map(t=>({t,s:score(t,ch)})).sort((a,b)=>a.s-b.s)[0].t;
-      ch.tec = best.id; ch.conf=false;
+      ch.tec = best.id; ch.conf=false; ch.warnRaio=false; ch.warnTempo=false;
       ch.why = `${best.nome} · ${distKm(best,ch)} km · limite ${limiteKm(ch)} km ✓`;
     } else {
       ch.tec=null; ch.conf=true;
@@ -254,6 +271,7 @@ function render(){
     </div>`;
   }).join('') : '<div class="empty">Tudo distribuído ✓</div>';
 
+  renderStats();
   document.getElementById('grid').innerHTML =
     view==='tec' ? gridTec() : view==='hosp' ? gridHosp() : cfgView();
   document.querySelectorAll('.view').forEach(b=>b.classList.toggle('ghost', b.dataset.v!==view));
@@ -264,6 +282,24 @@ function render(){
       const inviavel = !c.tec;
       return `<div class="alert ${inviavel?'bad':'warn'}">${inviavel?'⛔':'⚠'} <b>${c.eq}</b> — ${DIAS[c.data]} ${SLOTS[c.slot]}: ${c.why}</div>`;
     }).join('');
+}
+
+function renderStats(){
+  const st = document.getElementById('stats');
+  if(view==='cfg'){ st.innerHTML=''; return; }
+  const ok       = chamados.filter(c=>c.tec && !c.conf).length;
+  const conflito = chamados.filter(c=>c.tec && c.conf).length;
+  const inviavel = chamados.filter(c=>!c.tec).length;
+  const kmTotal  = chamados.filter(c=>c.tec).reduce((s,c)=>{
+    const t=tecnicos.find(x=>x.id===c.tec); return s + distKm(t,c);
+  },0);
+  const ociosos  = tecnicos.filter(t=>!chamados.some(c=>c.tec===t.id)).length;
+  st.innerHTML = `
+    <div class="stat ok"><div class="n">${ok}</div><div class="l">Ok</div></div>
+    <div class="stat warn"><div class="n">${conflito}</div><div class="l">Conflito</div></div>
+    <div class="stat bad"><div class="n">${inviavel}</div><div class="l">Inviável</div></div>
+    <div class="stat km"><div class="n">${kmTotal}</div><div class="l">Km total</div></div>
+    <div class="stat idle"><div class="n">${ociosos}/${tecnicos.length}</div><div class="l">Téc. ociosos</div></div>`;
 }
 
 function gridTec(){
@@ -277,8 +313,14 @@ function gridTec(){
         const conflito = cells.length>1 || cells.some(c=>c.conf);
         const cls = cells.length ? (conflito?'warn':'ok') : 'free';
         h += `<div class="ln ${cls}"><span class="sl">${SLOTS[s][0]}</span><div class="ct">`;
+        const sobrepor = cells.length>1;
         h += cells.length
-          ? cells.map(c=>`<div class="chip"><b>${c.eq}</b><span>${c.cidade} · ${distKm(t,c)} km</span>${c.conf?`<br><span class="wbadge">override</span>`:''}${cells.length>1?`<br><span class="wbadge">sobreposição</span>`:''}</div>`).join('')
+          ? cells.map(c=>{
+              const badges=[];
+              if(c.warnRaio) badges.push('fora do raio');
+              if(c.warnTempo||sobrepor) badges.push('conflito de horário');
+              return `<div class="chip"><b>${c.eq}</b><span>${c.cidade} · ${distKm(t,c)} km</span>${badges.map(b=>`<br><span class="wbadge">${b}</span>`).join('')}</div>`;
+            }).join('')
           : '<span class="dash">—</span>';
         h += '</div></div>';
       }
@@ -385,6 +427,8 @@ function manualAssign(chId, tecId){
   if(avisos.length && !confirm('⚠ Atenção:\n\n• '+avisos.join('\n• ')+'\n\nConfirmar mesmo assim (override)?')) return;
   ch.tec = t.id;
   ch.conf = fora || ocup;
+  ch.warnRaio = fora;
+  ch.warnTempo = ocup;
   ch.why = ch.conf ? 'Override manual — '+avisos.join('; ') : `${t.nome} · ${km} km · atribuição manual ✓`;
   selecionado = null;
   render();
@@ -396,9 +440,18 @@ function drop2(ev,tecId,el){ ev.preventDefault(); el.classList.remove('drop'); m
 
 // ---------- EVENTOS ----------
 document.getElementById('distribuir').onclick = distribuir;
-document.getElementById('reset').onclick = ()=>{ chamados=baseChamados(); render(); };
+document.getElementById('reset').onclick = ()=>{ chamados=baseChamados(); selecionado=null; render(); };
+document.getElementById('demo').onclick = ()=>{
+  // força os dois chamados de Santo André no Alexandre, mesmo dia/slot -> conflito de horário
+  [['c8','aa'],['c9','aa']].forEach(([cid,tid])=>{
+    const ch=chamados.find(c=>c.id===cid);
+    ch.tec=tid; ch.conf=true; ch.warnTempo=true; ch.warnRaio=false;
+    ch.why='Override manual — Alexandre Antonini já tem chamado em Ter 30/jun Manhã (sobreposição)';
+  });
+  selecionado=null; render();
+};
 document.querySelectorAll('.view').forEach(b=> b.onclick = ()=>{ view=b.dataset.v; render(); });
-render();
+distribuir(); // implementação real: roda sozinho a cada chamado que entra (orientado a eventos)
 </script>
 </body>
 </html>
