@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hospital Elastico — Distribuição Inteligente (protótipo)</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --panel2:#243149; --line:#334155;
+    --txt:#e2e8f0; --muted:#94a3b8; --green:#16a34a; --greenbg:#14532d;
+    --red:#dc2626; --redbg:#5b1414; --amber:#d97706; --amberbg:#3f2d06; --blue:#2563eb;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--txt);font-size:13px}
+  header{padding:14px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  header h1{font-size:16px;margin:0;font-weight:600}
+  header .tag{font-size:11px;color:var(--muted);border:1px solid var(--line);padding:2px 8px;border-radius:20px}
+  .wrap{display:flex;gap:16px;padding:16px;align-items:flex-start;flex-wrap:wrap}
+  .col{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+  .col h2{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:0 0 10px}
+  #pending{width:300px;flex-shrink:0}
+  #board{flex:1;min-width:540px}
+  button{background:var(--blue);color:#fff;border:0;padding:8px 12px;border-radius:7px;font-size:12px;cursor:pointer;font-weight:600}
+  button.ghost{background:transparent;border:1px solid var(--line);color:var(--txt);font-weight:500}
+  button:hover{filter:brightness(1.1)}
+  .tabs{display:flex;gap:6px;margin-bottom:12px}
+  .card{border:1px solid var(--line);border-radius:8px;padding:9px 10px;margin-bottom:8px;background:var(--panel2)}
+  .card .eq{font-weight:600;font-size:12px}
+  .card .meta{color:var(--muted);font-size:11px;margin-top:3px;line-height:1.5}
+  .pri{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;margin-left:6px}
+  .pri.alta{background:var(--red)} .pri.media{background:var(--amber)} .pri.baixa{background:#475569}
+  table.agenda{border-collapse:separate;border-spacing:0;width:100%}
+  table.agenda th,table.agenda td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);text-align:left;vertical-align:top}
+  table.agenda tr:first-child th{border-top:1px solid var(--line)}
+  table.agenda th:first-child,table.agenda td:first-child{border-left:1px solid var(--line)}
+  table.agenda th{background:var(--panel2);padding:9px 10px;font-size:11px;font-weight:600}
+  table.agenda tr:first-child th:first-child{border-top-left-radius:9px}
+  table.agenda tr:first-child th:last-child{border-top-right-radius:9px}
+  th.day{width:160px;position:sticky;left:0;z-index:2}
+  td{padding:0;min-width:150px}
+  /* linha de slot dentro da célula do dia */
+  .ln{display:flex;align-items:stretch;min-height:38px;border-bottom:1px dashed var(--line)}
+  .ln:last-child{border-bottom:0}
+  .ln .sl{width:20px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--muted);background:rgba(255,255,255,.03);border-right:1px solid var(--line)}
+  .ln .ct{flex:1;padding:5px 7px;display:flex;flex-direction:column;gap:4px;justify-content:center}
+  .ln.free{opacity:.5}
+  .ln.free .dash{color:var(--muted);font-size:12px}
+  .ln.ok{background:linear-gradient(90deg,var(--greenbg),transparent 70%);border-left:3px solid var(--green)}
+  .ln.warn{background:linear-gradient(90deg,var(--amberbg),transparent 70%);border-left:3px solid var(--amber)}
+  .ln.bad{background:linear-gradient(90deg,var(--redbg),transparent 70%);border-left:3px solid var(--red)}
+  .chip{line-height:1.35}
+  .chip b{font-size:11.5px;font-weight:600;display:block}
+  .chip span{font-size:10px;color:#cbd5e1}
+  .chip .wbadge{display:inline-block;font-size:9px;font-weight:700;color:#fbbf24;background:rgba(217,119,6,.18);padding:0 5px;border-radius:4px;margin-top:2px}
+  .alerts{margin-top:12px}
+  .alert{border-radius:7px;padding:8px 10px;font-size:11px;margin-bottom:6px}
+  .alert.warn{background:var(--amberbg);border:1px solid var(--amber);color:#fde68a}
+  .alert.bad{background:var(--redbg);border:1px solid var(--red);color:#fca5a5}
+  .legend{display:flex;gap:14px;font-size:11px;color:var(--muted);margin-top:10px;flex-wrap:wrap}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:middle}
+  .why{font-size:10px;color:#86efac;margin-top:4px}
+  .empty{color:var(--muted);font-size:11px;font-style:italic}
+  .card{cursor:grab} .card:active{cursor:grabbing}
+  .card.sel{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue)}
+  .card .hint{font-size:10px;color:var(--muted);margin-top:5px}
+  .alts{margin-top:8px;border-top:1px dashed var(--line);padding-top:8px}
+  .alt{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;margin-bottom:4px;font-size:11px;background:var(--bg)}
+  .alt .rk{font-weight:700;color:#60a5fa;width:14px}
+  .alt .nm{flex:1}
+  .alt .st{font-size:10px;padding:1px 5px;border-radius:4px}
+  .alt .st.livre{background:var(--greenbg);color:#86efac}
+  .alt .st.ocup{background:#422006;color:#fbbf24}
+  .alt .st.fora{background:#3f1212;color:#fca5a5}
+  .alt button{padding:3px 8px;font-size:10px}
+  .rec{font-size:10px;color:#86efac;margin-bottom:6px}
+  th.day.drop{outline:2px dashed var(--blue);outline-offset:-3px;background:#1d2c4d}
+  /* config */
+  .cfg{display:flex;gap:18px;flex-wrap:wrap}
+  .cfgbox{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:14px;min-width:280px;flex:1}
+  .cfgbox h3{margin:0 0 12px;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  .field{margin-bottom:14px}
+  .field label{display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px}
+  .field label b{color:#60a5fa}
+  input[type=range]{width:100%;accent-color:var(--blue)}
+  .seg{display:flex;gap:6px}
+  .seg button{flex:1;font-size:11px;padding:6px}
+  .desc{font-size:10px;color:var(--muted);margin-top:3px}
+  .ctable th,.ctable td{padding:6px 8px;font-size:11px}
+  .ctable input[type=number]{width:64px;background:var(--bg);border:1px solid var(--line);color:var(--txt);border-radius:5px;padding:3px 5px}
+  .pill{font-size:10px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Hospital Elastico · Distribuição Inteligente</h1>
+  <span class="tag">protótipo · dados fictícios</span>
+  <span class="tag">modo copiloto (sugere, humano confirma)</span>
+</header>
+
+<div class="wrap">
+  <div class="col" id="pending">
+    <h2>Chamados pendentes</h2>
+    <div id="pendingList"></div>
+    <button id="distribuir" style="width:100%;margin-top:6px">⚡ Distribuir automaticamente</button>
+    <button class="ghost" id="reset" style="width:100%;margin-top:6px">Resetar</button>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--green)"></span>Ok</span>
+      <span><span class="dot" style="background:var(--amber)"></span>Conflito / override</span>
+      <span><span class="dot" style="background:var(--red)"></span>Inviável</span>
+    </div>
+  </div>
+
+  <div class="col" id="board">
+    <div class="tabs">
+      <button class="view" data-v="tec">Por técnico</button>
+      <button class="view ghost" data-v="hosp">Por hospital</button>
+      <button class="view ghost" data-v="cfg">⚙ Configuração</button>
+    </div>
+    <div id="grid"></div>
+    <div class="alerts" id="alerts"></div>
+  </div>
+</div>
+
+<script>
+// ---------- DADOS ----------
+const DIAS = ['Ter 30/jun','Qua 01/jul','Qui 02/jul','Sex 03/jul'];
+const SLOTS = ['Manhã','Tarde'];
+
+const tecnicos = [
+  {id:'fm', nome:'Fernando Monteiro', base:'S.J. Rio Preto', esp:['BD8','IDS','PrepStan']},
+  {id:'rd', nome:'Roberto Davides',   base:'Jaboticabal',    esp:['BD8','IDS','BACTEC']},
+  {id:'aa', nome:'Alexandre Antonini',base:'Santo André',    esp:['BACTEC','Phoenix']},
+  {id:'gf', nome:'Gabriel Flaminio',  base:'São Paulo',      esp:['BACTEC','Lyric']},
+];
+
+// distância rodoviária aprox. (km) base do técnico -> cidade do chamado
+const KM = {
+  'Rio Claro':      {fm:250, rd:150, aa:190, gf:170},
+  'Santo André':    {fm:470, rd:370, aa:10,  gf:25 },
+  'Ribeirão Preto': {fm:180, rd:70,  aa:330, gf:310},
+  'São Paulo':      {fm:440, rd:350, aa:25,  gf:5  },
+  'Campinas':       {fm:300, rd:230, aa:110, gf:95 },
+};
+
+let chamados = baseChamados();
+function baseChamados(){ return [
+  {id:'c1', eq:'BACTEC FX40 LSL', hospital:'Lab Rio Claro',     cidade:'Rio Claro',      data:0, slot:0, esp:'BACTEC', pri:'alta',  tec:null},
+  {id:'c2', eq:'BD8 + IDS',       hospital:'Hosp. Einstein',    cidade:'São Paulo',      data:0, slot:1, esp:'BD8',    pri:'media', tec:null},
+  {id:'c3', eq:'Phoenix M50',     hospital:'Santa Casa ABC',    cidade:'Santo André',    data:1, slot:0, esp:'Phoenix',pri:'alta',  tec:null},
+  {id:'c4', eq:'BACTEC instalação',hospital:'Lab Saúde RP',     cidade:'Ribeirão Preto', data:1, slot:0, esp:'BACTEC', pri:'media', tec:null},
+  {id:'c5', eq:'Lyric coleta',    hospital:'Hosp. Sírio',       cidade:'São Paulo',      data:2, slot:0, esp:'Lyric',   pri:'baixa', tec:null},
+  {id:'c6', eq:'BACTEC preventiva',hospital:'Lab Botucatu',     cidade:'Campinas',       data:2, slot:1, esp:'BACTEC', pri:'media', tec:null},
+  {id:'c7', eq:'BD8 corretiva',   hospital:'Hosp. Rio Claro',   cidade:'Rio Claro',      data:0, slot:0, esp:'BD8',    pri:'alta',  tec:null},
+];}
+
+// ---------- CONFIG (o que a Núbia ajustaria por cliente) ----------
+const cfg = {
+  maxKm: 400,            // distância máxima global
+  rota: 'real',          // 'real' (rodoviária) | 'reta' (linha reta, ~0.75x)
+  pDist: 2,              // peso distância
+  pCarga: 1,             // peso balanceamento de carga
+  pPri: 2,               // peso prioridade
+  cliente: {             // override por cliente: maxKm próprio + boost de prioridade
+    'Hosp. Einstein': {maxKm:60,  boost:1},
+    'Lab Rio Claro':  {maxKm:300, boost:0},
+  }
+};
+
+let view = 'tec';
+let selecionado = null;
+
+// ---------- MOTOR ----------
+function distKm(t, ch){
+  const base = (KM[ch.cidade]||{})[t.id] ?? 9999;
+  return cfg.rota==='reta' ? Math.round(base*0.75) : base;
+}
+function limiteKm(ch){
+  return cfg.cliente[ch.hospital]?.maxKm ?? cfg.maxKm;
+}
+function elegiveis(ch){
+  return tecnicos.filter(t =>
+    t.esp.includes(ch.esp) &&            // constraint: especialidade
+    distKm(t,ch) <= limiteKm(ch)         // constraint: distância máx (global ou do cliente)
+  );
+}
+function ocupado(tecId, data, slot){
+  return chamados.some(c => c.tec===tecId && c.data===data && c.slot===slot);
+}
+function peso(p){ return p==='alta'?3:p==='media'?2:1; }
+function score(t, ch){
+  const km = distKm(t,ch);
+  const carga = chamados.filter(c=>c.tec===t.id).length;
+  const boost = cfg.cliente[ch.hospital]?.boost ?? 0;
+  // menor = melhor; prioridade reduz o score (puxa pra frente)
+  return (km/50)*cfg.pDist + carga*cfg.pCarga - (peso(ch.pri)+boost)*cfg.pPri;
+}
+function distribuir(){
+  const ordem = [...chamados].filter(c=>!c.tec).sort((a,b)=>peso(b.pri)-peso(a.pri));
+  for(const ch of ordem){
+    const livres = elegiveis(ch).filter(t => !ocupado(t.id, ch.data, ch.slot));
+    if(livres.length){
+      const best = livres.map(t=>({t,s:score(t,ch)})).sort((a,b)=>a.s-b.s)[0].t;
+      ch.tec = best.id; ch.conf=false;
+      ch.why = `${best.nome} · ${distKm(best,ch)} km · limite ${limiteKm(ch)} km ✓`;
+    } else {
+      ch.tec=null; ch.conf=true;
+      const semEsp = !tecnicos.some(t=>t.esp.includes(ch.esp));
+      const foraRaio = tecnicos.some(t=>t.esp.includes(ch.esp)) && elegiveis(ch).length===0;
+      ch.why = semEsp ? 'Nenhum técnico com a especialidade'
+             : foraRaio ? `Todos fora do raio (limite ${limiteKm(ch)} km)`
+             : 'Sem técnico livre nesse horário — decisão humana';
+    }
+  }
+  render();
+}
+
+// ---------- alternativas ranqueadas ----------
+function alternativas(ch){
+  return tecnicos
+    .filter(t=>t.esp.includes(ch.esp))
+    .map(t=>{
+      const km=distKm(t,ch), fora=km>limiteKm(ch), ocup=ocupado(t.id,ch.data,ch.slot);
+      return {t,km,fora,ocup,s:score(t,ch)};
+    })
+    .sort((a,b)=> (a.fora-b.fora)||(a.ocup-b.ocup)||(a.s-b.s));
+}
+
+// ---------- RENDER ----------
+function render(){
+  const pend = chamados.filter(c=>!c.tec || c.conf);
+  document.getElementById('pendingList').innerHTML = pend.length ? pend.map(c=>{
+    const aberto = selecionado===c.id;
+    let alts='';
+    if(aberto){
+      const list=alternativas(c);
+      const rec=list.find(a=>!a.fora&&!a.ocup);
+      alts=`<div class="alts">
+        ${rec?`<div class="rec">✓ Recomendado: <b>${rec.t.nome}</b> (${rec.km} km)</div>`:`<div class="rec" style="color:#fca5a5">Sem opção limpa — escolha um override abaixo</div>`}
+        ${list.map((a,i)=>`<div class="alt">
+          <span class="rk">${i+1}</span>
+          <span class="nm">${a.t.nome} <span class="pill">${a.km}km</span></span>
+          <span class="st ${a.fora?'fora':a.ocup?'ocup':'livre'}">${a.fora?'fora do raio':a.ocup?'ocupado':'livre'}</span>
+          <button onclick="event.stopPropagation();manualAssign('${c.id}','${a.t.id}')">atribuir</button>
+        </div>`).join('')}
+      </div>`;
+    }
+    return `<div class="card ${aberto?'sel':''}" draggable="true"
+        ondragstart="drag(event,'${c.id}')" onclick="toggleSel('${c.id}')">
+      <div class="eq">${c.eq}<span class="pri ${c.pri}">${c.pri}</span></div>
+      <div class="meta">${c.hospital} · ${c.cidade}<br>${DIAS[c.data]} · ${SLOTS[c.slot]} · req: ${c.esp}</div>
+      ${c.conf?`<div class="why" style="color:#fca5a5">${c.why}</div>`:''}
+      <div class="hint">${aberto?'':'↕ arraste pro técnico · ou clique p/ ver alternativas'}</div>
+      ${alts}
+    </div>`;
+  }).join('') : '<div class="empty">Tudo distribuído ✓</div>';
+
+  document.getElementById('grid').innerHTML =
+    view==='tec' ? gridTec() : view==='hosp' ? gridHosp() : cfgView();
+  document.querySelectorAll('.view').forEach(b=>b.classList.toggle('ghost', b.dataset.v!==view));
+
+  const conf = chamados.filter(c=>c.conf);
+  document.getElementById('alerts').innerHTML = view==='cfg' ? '' :
+    conf.map(c=>{
+      const inviavel = !c.tec;
+      return `<div class="alert ${inviavel?'bad':'warn'}">${inviavel?'⛔':'⚠'} <b>${c.eq}</b> — ${DIAS[c.data]} ${SLOTS[c.slot]}: ${c.why}</div>`;
+    }).join('');
+}
+
+function gridTec(){
+  let h = '<table class="agenda"><tr><th class="day">Técnico</th>'+DIAS.map(d=>`<th>${d}</th>`).join('')+'</tr>';
+  for(const t of tecnicos){
+    h += `<tr><th class="day" ondragover="dragOver(event,this)" ondragleave="this.classList.remove('drop')" ondrop="drop2(event,'${t.id}',this)">${t.nome}<br><span class="pill">${t.base} · solte aqui</span></th>`;
+    for(let d=0; d<DIAS.length; d++){
+      h += '<td>';
+      for(let s=0; s<SLOTS.length; s++){
+        const cells = chamados.filter(c=>c.tec===t.id && c.data===d && c.slot===s);
+        const conflito = cells.length>1 || cells.some(c=>c.conf);
+        const cls = cells.length ? (conflito?'warn':'ok') : 'free';
+        h += `<div class="ln ${cls}"><span class="sl">${SLOTS[s][0]}</span><div class="ct">`;
+        h += cells.length
+          ? cells.map(c=>`<div class="chip"><b>${c.eq}</b><span>${c.cidade} · ${distKm(t,c)} km</span>${c.conf?`<br><span class="wbadge">override</span>`:''}${cells.length>1?`<br><span class="wbadge">sobreposição</span>`:''}</div>`).join('')
+          : '<span class="dash">—</span>';
+        h += '</div></div>';
+      }
+      h += '</td>';
+    }
+    h+='</tr>';
+  }
+  return h+'</table>';
+}
+function gridHosp(){
+  const hosps=[...new Set(chamados.map(c=>c.hospital))];
+  let h='<table class="agenda"><tr><th class="day">Hospital / Cliente</th>'+DIAS.map(d=>`<th>${d}</th>`).join('')+'</tr>';
+  for(const hp of hosps){
+    h+=`<tr><th class="day">${hp}<br><span class="pill">limite ${cfg.cliente[hp]?.maxKm ?? cfg.maxKm} km</span></th>`;
+    for(let d=0; d<DIAS.length; d++){
+      h+='<td>';
+      for(let s=0; s<SLOTS.length; s++){
+        const cells=chamados.filter(c=>c.hospital===hp && c.data===d && c.slot===s);
+        let cls='free';
+        if(cells.length) cls = cells.some(c=>!c.tec) ? 'bad' : cells.some(c=>c.conf) ? 'warn' : 'ok';
+        h+=`<div class="ln ${cls}"><span class="sl">${SLOTS[s][0]}</span><div class="ct">`;
+        h+= cells.length
+          ? cells.map(c=>{const t=tecnicos.find(x=>x.id===c.tec);
+              return `<div class="chip"><b>${c.eq}</b><span>${t?t.nome:'⏳ sem técnico'}</span></div>`}).join('')
+          : '<span class="dash">—</span>';
+        h+='</div></div>';
+      }
+      h+='</td>';
+    }
+    h+='</tr>';
+  }
+  return h+'</table>';
+}
+
+function cfgView(){
+  const cli = Object.entries(cfg.cliente).map(([h,v])=>`
+    <tr><td>${h}</td>
+      <td><input type="number" value="${v.maxKm}" onchange="cfg.cliente['${h}'].maxKm=+this.value;distribuir()"> km</td>
+      <td><input type="number" value="${v.boost}" min="0" max="3" onchange="cfg.cliente['${h}'].boost=+this.value;distribuir()"></td>
+    </tr>`).join('');
+  return `<div class="cfg">
+    <div class="cfgbox">
+      <h3>Regras gerais</h3>
+      <div class="field">
+        <label>Distância máxima <b id="vKm">${cfg.maxKm} km</b></label>
+        <input type="range" min="20" max="600" step="10" value="${cfg.maxKm}"
+          oninput="cfg.maxKm=+this.value;document.getElementById('vKm').textContent=this.value+' km';distribuir()">
+        <div class="desc">Acima disso o técnico é descartado (constraint duro).</div>
+      </div>
+      <div class="field">
+        <label>Roteirização</label>
+        <div class="seg">
+          <button class="${cfg.rota==='real'?'':'ghost'}" onclick="cfg.rota='real';distribuir()">Rota rodoviária</button>
+          <button class="${cfg.rota==='reta'?'':'ghost'}" onclick="cfg.rota='reta';distribuir()">Linha reta</button>
+        </div>
+        <div class="desc">Rota real ≈ distância de mapa; linha reta engana (~0,75×). Aqui é simulado — em produção plugaria Google/Mapbox/OSRM.</div>
+      </div>
+    </div>
+
+    <div class="cfgbox">
+      <h3>Pesos do algoritmo</h3>
+      <div class="field">
+        <label>Distância / deslocamento <b id="vD">${cfg.pDist}</b></label>
+        <input type="range" min="0" max="4" step="1" value="${cfg.pDist}"
+          oninput="cfg.pDist=+this.value;document.getElementById('vD').textContent=this.value;distribuir()">
+      </div>
+      <div class="field">
+        <label>Balanceamento de carga <b id="vC">${cfg.pCarga}</b></label>
+        <input type="range" min="0" max="4" step="1" value="${cfg.pCarga}"
+          oninput="cfg.pCarga=+this.value;document.getElementById('vC').textContent=this.value;distribuir()">
+      </div>
+      <div class="field">
+        <label>Prioridade do chamado <b id="vP">${cfg.pPri}</b></label>
+        <input type="range" min="0" max="4" step="1" value="${cfg.pPri}"
+          oninput="cfg.pPri=+this.value;document.getElementById('vP').textContent=this.value;distribuir()">
+      </div>
+      <div class="desc">Cada operação valoriza variáveis diferentes — mexa e veja a distribuição mudar na hora.</div>
+    </div>
+
+    <div class="cfgbox">
+      <h3>Override por cliente</h3>
+      <table class="ctable" style="width:100%">
+        <tr><th>Cliente</th><th>Limite km</th><th>Boost pri.</th></tr>
+        ${cli}
+      </table>
+      <div class="desc">Ex.: Einstein exige técnico a até 60 km → puxa Gabriel/Alexandre e descarta os do interior.</div>
+    </div>
+  </div>`;
+}
+
+// ---------- interação manual ----------
+function toggleSel(id){ selecionado = selecionado===id ? null : id; render(); }
+
+function manualAssign(chId, tecId){
+  const ch = chamados.find(c=>c.id===chId);
+  const t  = tecnicos.find(x=>x.id===tecId);
+  if(!t.esp.includes(ch.esp)){
+    alert(`Bloqueado: ${t.nome} não tem a especialidade ${ch.esp}.`); return;
+  }
+  const km = distKm(t,ch), fora = km>limiteKm(ch), ocup = ocupado(t.id,ch.data,ch.slot);
+  let avisos=[];
+  if(fora) avisos.push(`${km} km — acima do limite de ${limiteKm(ch)} km`);
+  if(ocup) avisos.push(`${t.nome} já tem chamado em ${DIAS[ch.data]} ${SLOTS[ch.slot]} (sobreposição)`);
+  if(avisos.length && !confirm('⚠ Atenção:\n\n• '+avisos.join('\n• ')+'\n\nConfirmar mesmo assim (override)?')) return;
+  ch.tec = t.id;
+  ch.conf = fora || ocup;
+  ch.why = ch.conf ? 'Override manual — '+avisos.join('; ') : `${t.nome} · ${km} km · atribuição manual ✓`;
+  selecionado = null;
+  render();
+}
+
+function drag(ev,id){ ev.dataTransfer.setData('id',id); }
+function dragOver(ev,el){ ev.preventDefault(); el.classList.add('drop'); }
+function drop2(ev,tecId,el){ ev.preventDefault(); el.classList.remove('drop'); manualAssign(ev.dataTransfer.getData('id'),tecId); }
+
+// ---------- EVENTOS ----------
+document.getElementById('distribuir').onclick = distribuir;
+document.getElementById('reset').onclick = ()=>{ chamados=baseChamados(); render(); };
+document.querySelectorAll('.view').forEach(b=> b.onclick = ()=>{ view=b.dataset.v; render(); });
+render();
+</script>
+</body>
+</html>
